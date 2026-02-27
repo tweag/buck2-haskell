@@ -546,6 +546,10 @@ def _dynamic_target_metadata_impl(
         add_worker_args(haskell_toolchain, bp_args, unit.name)
 
         bp_args.add(buck2_args)
+        # Specifying this activates the new build plan logic
+        bp_args.add("--build-plan", cmd_args(build_plan, ignore_artifacts = True))
+        # Select which fields are added to the build plan
+        bp_args.add("--fields", "exposed_modules,module_graph,package_deps,th_modules,cache")
         bp_args.add(dep_units)
         bp_args.add("--unit", unit.name)
         bp_args.add(cmd_args(ghc_args_file, prepend = "--ghc-args", hidden = [build_plan.as_output(), makefile.as_output()]))
