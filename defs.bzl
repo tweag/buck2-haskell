@@ -77,6 +77,7 @@ def _scripts_arg():
             default = "@buck2-haskell//tools:ghc_pkg_registerer",
         ),
         "_worker": attrs.option(attrs.exec_dep(providers = [WorkerInfo]), default = None),
+        "_ghc_proxy": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
     }
 
 def _validate_srcs_arg():

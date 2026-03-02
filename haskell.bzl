@@ -1068,6 +1068,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     worker = ctx.attrs._worker[WorkerInfo] if ctx.attrs._worker else None
+    ghc_proxy = ctx.attrs._ghc_proxy[RunInfo] if ctx.attrs._ghc_proxy else None
 
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
 
@@ -1094,6 +1095,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 main = None,
                 sources = sources,
                 worker = worker,
+                ghc_proxy = ghc_proxy,
             )
             if link_style == LinkStyle("shared") and not enable_profiling:
                 def_md_file = md_file
@@ -1484,6 +1486,7 @@ def _haskell_executable(ctx: AnalysisContext) -> HaskellExecutableOutput:
         link_style = LinkStyle("static")
 
     worker = ctx.attrs._worker[WorkerInfo] if ctx.attrs._worker else None
+    ghc_proxy = ctx.attrs._ghc_proxy[RunInfo] if ctx.attrs._ghc_proxy else None
 
     md_file = target_metadata(
         ctx,
@@ -1493,6 +1496,7 @@ def _haskell_executable(ctx: AnalysisContext) -> HaskellExecutableOutput:
         main = getattr(ctx.attrs, "main", None),
         sources = sources,
         worker = worker,
+        ghc_proxy = ghc_proxy,
     )
 
     (pkgname, libname) = make_haskell_names_from_label(ctx.label, False)
