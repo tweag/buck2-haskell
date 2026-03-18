@@ -943,15 +943,10 @@ def _categorize_package_deps(
     exposed_package_dbs = []
     package_deps = []
 
-    # NOTE: This is a temporary workaround since worker-generated md.json file does not have toolchain dep
-    # information correctly. Once that issue is solved, we will remove this line.
-    if is_worker_execute:
-        toolchain_deps = toolchain_deps_by_name.keys()
-
     if graph_set.get(module_name):
         tset = graph_set.get(module_name)
         for (dep_pkgname, dep_modules) in tset.value[1].items():
-            if not is_worker_execute and dep_pkgname in toolchain_deps_by_name:
+            if dep_pkgname in toolchain_deps_by_name:
                 toolchain_deps.append(dep_pkgname)
             elif dep_pkgname in direct_deps_by_name:
                 direct_dep = direct_deps_by_name[dep_pkgname]
