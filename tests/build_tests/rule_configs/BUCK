@@ -1,0 +1,129 @@
+load(
+    "@buck2-haskell//:defs.bzl",
+    "haskell_binary",
+    "haskell_ghci",
+    "haskell_haddock",
+    "haskell_library",
+    "haskell_test",
+)
+
+# =============================================================================
+# Build configuration via constraints
+# =============================================================================
+# These targets use Buck2 constraints to control build type and link style,
+# rather than hardcoding GHC flags or link_style attributes directly.
+#
+# Constraints used:
+#   root//constraints/build_type:release  — compiles with -O2
+#   root//constraints/build_type:debug    — compiles with -O0 (default)
+#   root//constraints/link_style:static   — static linking (alias for static_pic)
+#   root//constraints/link_style:shared   — dynamic linking
+#
+# Link style is driven by the CXX toolchain constraint (see
+# toolchains/nix/default_toolchains.bzl), so haskell_binary and haskell_test
+# do not set link_style explicitly.
+#
+# To test all configurations, run with different --modifier combinations:
+#   buck test //tests/... --modifier root//constraints/link_style:static --modifier root//constraints/build_type:debug
+#   buck test //tests/... --modifier root//constraints/link_style:static --modifier root//constraints/build_type:release
+#   buck test //tests/... --modifier root//constraints/link_style:shared --modifier root//constraints/build_type:debug
+#   buck test //tests/... --modifier root//constraints/link_style:shared --modifier root//constraints/build_type:release
+
+# =============================================================================
+# haskell_library
+# =============================================================================
+# Tests that haskell_library builds correctly under both build type constraints.
+# Libraries use preferred_linkage = "any" (default) so they produce artifacts
+# for all link styles; the active link style is selected by the consumer via the
+# toolchain constraint.
+#
+# compiler_flags are set via select() on build_type because compiler_flags do
+# not propagate from binary consumers to library dependencies in Buck2.
+haskell_library(
+    name = "lib",
+    srcs = ["Lib.hs"],
+    compiler_flags = select({
+        "root//constraints/build_type:release": ["-O2"],
+        "root//constraints/build_type:debug": ["-O0"],
+        "DEFAULT": [],
+    }),
+    deps = ["//tests:base"],
+    visibility = ["//tests/..."],
+)
+
+# =============================================================================
+# haskell_haddock (documentation generation)
+# =============================================================================
+# NOTE: haddock generation is currently broken because haskell_haddock.bzl uses
+# --one-shot-hi and --one-shot-dep-hi flags not present in standard haddock
+# 2.28.0. Target defined for completeness.
+
+# Test: haddock documentation generation for the library.
+# haskell_haddock(
+#     name = "haddock",
+#     deps = [":lib"],
+# )
+
+# =============================================================================
+# haskell_binary
+# =============================================================================
+# Tests that haskell_binary builds and runs correctly. Link style is determined
+# by the toolchain constraint (root//constraints/link_style). Build type
+# (optimization level) is set via select() on root//constraints/build_type.
+haskell_binary(
+    name = "bin",
+    srcs = ["Main.hs"],
+    compiler_flags = select({
+        "root//constraints/build_type:release": ["-O2"],
+        "root//constraints/build_type:debug": ["-O0"],
+        "DEFAULT": [],
+    }),
+    deps = [
+        ":lib",
+        "//tests:base",
+    ],
+)
+
+# Runs the binary to verify correct linking and runtime behavior.
+sh_test(
+    name = "test_bin",
+    test = ":bin",
+)
+
+# =============================================================================
+# haskell_test
+# =============================================================================
+# Tests that haskell_test builds and executes correctly. Same constraint-driven
+# configuration as haskell_binary above.
+haskell_test(
+    name = "ht",
+    srcs = ["TestMain.hs"],
+    compiler_flags = select({
+        "root//constraints/build_type:release": ["-O2"],
+        "root//constraints/build_type:debug": ["-O0"],
+        "DEFAULT": [],
+    }),
+    deps = [
+        ":lib",
+        "//tests:base",
+    ],
+)
+
+# =============================================================================
+# haskell_ghci
+# =============================================================================
+# NOTE: haskell_ghci is currently broken due to pre-existing issues:
+# 1. haskell_ghci.bzl:566 - requires ghci_bin_dep which must be explicitly set
+# 2. haskell_ghci.bzl:743 - references lib.import_dirs which no longer exists
+#    in HaskellLibraryInfo (replaced by lib.interfaces/lib.objects)
+# Target defined for completeness; cannot be tested until ghci module is fixed.
+
+# Test: haskell_ghci script generation.
+# haskell_ghci(
+#     name = "ghci",
+#     ghci_bin_dep = "//tests:ghci_bin",
+#     deps = [
+#         ":lib",
+#         "//tests:base",
+#     ],
+# )
