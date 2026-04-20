@@ -1,0 +1,223 @@
+load(
+    "@buck2-haskell//:defs.bzl",
+    "haskell_binary",
+    "haskell_ghci",
+    "haskell_haddock",
+    "haskell_library",
+    "haskell_test",
+)
+
+# =============================================================================
+# haskell_library targets
+# =============================================================================
+# Libraries use preferred_linkage = "any" (default) so they build artifacts for
+# all link styles (static, static_pic, shared). The actual link style is
+# exercised by the consumers (haskell_binary, haskell_test) that depend on them.
+
+# Test: haskell_library with release optimization (-O2).
+# Exercises the library build with GHC optimizations enabled.
+haskell_library(
+    name = "lib_release",
+    srcs = ["Lib.hs"],
+    compiler_flags = ["-O2"],
+    deps = ["//tests:base"],
+    visibility = ["//tests/..."],
+)
+
+# Test: haskell_library with debug build (-O0, no optimization).
+# Exercises the library build without GHC optimizations.
+haskell_library(
+    name = "lib_debug",
+    srcs = ["Lib.hs"],
+    compiler_flags = ["-O0"],
+    deps = ["//tests:base"],
+    visibility = ["//tests/..."],
+)
+
+# =============================================================================
+# haskell_haddock targets (documentation generation for haskell_library)
+# =============================================================================
+# NOTE: haddock generation is currently broken in this environment because the
+# haskell_haddock.bzl code uses --one-shot-hi and --one-shot-dep-hi flags that
+# are not available in the available haddock binary. These targets are
+# defined for completeness but cannot produce test results until the toolchain
+# provides a compatible haddock binary.
+
+# Test: haddock documentation for lib_release (release build).
+# haskell_haddock(
+#     name = "haddock_release",
+#     deps = [":lib_release"],
+# )
+
+# Test: haddock documentation for lib_debug (debug build).
+# haskell_haddock(
+#     name = "haddock_debug",
+#     deps = [":lib_debug"],
+# )
+
+# =============================================================================
+# haskell_binary targets
+# =============================================================================
+# Each binary exercises a specific combination of link style (static/shared)
+# and build type (release/debug). The link_style attribute controls how the
+# binary and its dependencies are linked.
+
+# Test: haskell_binary with static linking and release optimization (-O2).
+# Produces a statically linked executable with full GHC optimizations.
+haskell_binary(
+    name = "bin_static_release",
+    srcs = ["Main.hs"],
+    link_style = "static",
+    compiler_flags = ["-O2"],
+    deps = [
+        ":lib_release",
+        "//tests:base",
+    ],
+)
+
+# Test: haskell_binary with static linking and debug build (-O0).
+# Produces a statically linked executable without optimizations.
+haskell_binary(
+    name = "bin_static_debug",
+    srcs = ["Main.hs"],
+    link_style = "static",
+    compiler_flags = ["-O0"],
+    deps = [
+        ":lib_debug",
+        "//tests:base",
+    ],
+)
+
+# Test: haskell_binary with shared (dynamic) linking and release optimization.
+# Produces a dynamically linked executable with full GHC optimizations.
+haskell_binary(
+    name = "bin_shared_release",
+    srcs = ["Main.hs"],
+    link_style = "shared",
+    compiler_flags = ["-O2"],
+    deps = [
+        ":lib_release",
+        "//tests:base",
+    ],
+)
+
+# Test: haskell_binary with shared (dynamic) linking and debug build (-O0).
+# Produces a dynamically linked executable without optimizations.
+haskell_binary(
+    name = "bin_shared_debug",
+    srcs = ["Main.hs"],
+    link_style = "shared",
+    compiler_flags = ["-O0"],
+    deps = [
+        ":lib_debug",
+        "//tests:base",
+    ],
+)
+
+# sh_tests that run each binary to verify correct linking and runtime behavior.
+sh_test(
+    name = "test_bin_static_release",
+    test = ":bin_static_release",
+)
+
+sh_test(
+    name = "test_bin_static_debug",
+    test = ":bin_static_debug",
+)
+
+sh_test(
+    name = "test_bin_shared_release",
+    test = ":bin_shared_release",
+)
+
+sh_test(
+    name = "test_bin_shared_debug",
+    test = ":bin_shared_debug",
+)
+
+# =============================================================================
+# haskell_test targets
+# =============================================================================
+# haskell_test is a test rule: it builds a Haskell binary and runs it as a
+# test. Each target exercises a specific link style and build type combination.
+
+# Test: haskell_test with static linking and release optimization (-O2).
+haskell_test(
+    name = "ht_static_release",
+    srcs = ["TestMain.hs"],
+    link_style = "static",
+    compiler_flags = ["-O2"],
+    deps = [
+        ":lib_release",
+        "//tests:base",
+    ],
+)
+
+# Test: haskell_test with static linking and debug build (-O0).
+haskell_test(
+    name = "ht_static_debug",
+    srcs = ["TestMain.hs"],
+    link_style = "static",
+    compiler_flags = ["-O0"],
+    deps = [
+        ":lib_debug",
+        "//tests:base",
+    ],
+)
+
+# Test: haskell_test with shared (dynamic) linking and release optimization.
+haskell_test(
+    name = "ht_shared_release",
+    srcs = ["TestMain.hs"],
+    link_style = "shared",
+    compiler_flags = ["-O2"],
+    deps = [
+        ":lib_release",
+        "//tests:base",
+    ],
+)
+
+# Test: haskell_test with shared (dynamic) linking and debug build (-O0).
+haskell_test(
+    name = "ht_shared_debug",
+    srcs = ["TestMain.hs"],
+    link_style = "shared",
+    compiler_flags = ["-O0"],
+    deps = [
+        ":lib_debug",
+        "//tests:base",
+    ],
+)
+
+# =============================================================================
+# haskell_ghci targets
+# =============================================================================
+# NOTE: haskell_ghci is currently broken due to:
+#    haskell_ghci.bzl:743 - references lib.import_dirs which no longer exists
+#    in the HaskellLibraryInfo record (replaced by lib.interfaces/lib.objects)
+# These targets are defined for completeness but cannot be tested until the
+# ghci module is updated to match the current library_info.bzl record schema.
+
+# Test: haskell_ghci with release optimization (-O2).
+# Verifies the ghci script is generated correctly with optimized library deps.
+# haskell_ghci(
+#     name = "ghci_release",
+#     compiler_flags = ["-O2"],
+#     ghci_bin_dep = "//tests:ghci_bin",
+#     deps = [
+#         ":lib_release",
+#         "//tests:base",
+#     ],
+# )
+
+# Test: haskell_ghci with debug build (-O0).
+# Verifies the ghci script is generated correctly with unoptimized library deps.
+# haskell_ghci(
+#     name = "ghci_debug",
+#     compiler_flags = ["-O0"],
+#     ghci_bin_dep = "//tests:ghci_bin",
+#     deps = [
+#         ":lib_debug",
+#         "//tests:base",
+#     ],
+# )
