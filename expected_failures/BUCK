@@ -1,0 +1,91 @@
+load(
+    "@buck2-haskell//:defs.bzl",
+    "ghc_plugin",
+    "haskell_binary",
+    "haskell_ghci",
+    "haskell_haddock",
+    "haskell_library",
+    "haskell_toolchain_library",
+)
+
+# =============================================================================
+# Expected-failure targets
+# =============================================================================
+# These targets are EXPECTED TO FAIL at analysis time. They exist solely
+# to be built by tests/plugins/test_expected_failures.sh, which verifies
+# that they fail with the correct error messages.
+#
+# DO NOT add test rules (sh_test, haskell_test) here — these targets are
+# intentionally broken and must not be picked up by `buck test`.
+# =============================================================================
+
+# Local toolchain libraries so we don't need visibility from tests/
+haskell_toolchain_library(name = "base")
+haskell_toolchain_library(name = "ghc")
+
+# A self-contained noop plugin for use in expected-failure tests.
+haskell_library(
+    name = "noop_plugin_lib",
+    srcs = ["NoopPlugin.hs"],
+    deps = [":base", ":ghc"],
+)
+
+ghc_plugin(
+    name = "noop_plugin",
+    module = "NoopPlugin",
+    deps = [":noop_plugin_lib"],
+)
+
+# A haskell_binary, not a haskell_library — used to test the
+# HaskellLibraryProvider validation on ghc_plugin deps.
+haskell_binary(
+    name = "bad_dep_binary",
+    srcs = ["Lib.hs"],
+    main = "Lib",
+    deps = [":base"],
+)
+
+# --- Error: plugins and srcs_plugins are mutually exclusive ----------------
+haskell_library(
+    name = "err_mutual_exclusion",
+    srcs = ["Lib.hs"],
+    plugins = [":noop_plugin"],
+    srcs_plugins = {
+        "Lib.hs": [":noop_plugin"],
+    },
+    deps = [":base"],
+)
+
+# --- Error: ghc_plugin deps must provide HaskellLibraryProvider ------------
+ghc_plugin(
+    name = "err_bad_deps",
+    module = "NoopPlugin",
+    deps = [":bad_dep_binary"],
+)
+
+# --- Error: srcs_plugins with incremental = False --------------------------
+haskell_library(
+    name = "err_srcs_plugins_non_incremental",
+    srcs = ["Lib.hs"],
+    incremental = False,
+    srcs_plugins = {
+        "Lib.hs": [":noop_plugin"],
+    },
+    deps = [":base"],
+)
+
+# --- Error: haskell_ghci is broken -----------------------------------------
+haskell_ghci(
+    name = "err_ghci_plugin",
+    plugins = [":noop_plugin"],
+    deps = [
+        ":noop_plugin_lib",
+        ":base",
+    ],
+)
+
+# --- Error: haskell_haddock is broken --------------------------------------
+haskell_haddock(
+    name = "err_haddock_plugin",
+    deps = [":noop_plugin_lib"],
+)

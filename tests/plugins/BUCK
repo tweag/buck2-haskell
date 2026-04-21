@@ -1,0 +1,499 @@
+load(
+    "@buck2-haskell//:defs.bzl",
+    "ghc_plugin",
+    "haskell_binary",
+    "haskell_ghci",
+    "haskell_haddock",
+    "haskell_library",
+    "haskell_test",
+)
+
+# =============================================================================
+# Plugin library and ghc_plugin rule
+# =============================================================================
+
+# The noop plugin implementation library. It exports the NoopPlugin module which
+# is a minimal GHC plugin that does nothing (uses defaultPlugin).
+haskell_library(
+    name = "noop_plugin_lib",
+    srcs = ["NoopPlugin.hs"],
+    deps = [
+        "//tests:base",
+        "//tests:ghc",
+    ],
+    visibility = ["//tests/..."],
+)
+
+# A ghc_plugin target wrapping the noop plugin library.
+# This is the target that consumers reference via `plugins` or `srcs_plugins`.
+ghc_plugin(
+    name = "noop_plugin",
+    module = "NoopPlugin",
+    deps = [":noop_plugin_lib"],
+    visibility = ["//tests/..."],
+)
+
+# =============================================================================
+# Real plugin library: uses tools and plugin_opts
+# =============================================================================
+# The Plugin module:
+# - Takes two options: [tool_name, replacement_string]
+# - Invokes tool_name via readProcess (compile fails if tool not on PATH)
+# - Replaces all string literals with replacement_string (runtime check)
+
+haskell_library(
+    name = "plugin_lib",
+    srcs = ["Plugin.hs"],
+    deps = [
+        "//tests:base",
+        "//tests:bytestring",
+        "//tests:ghc",
+        "//tests:process",
+    ],
+    visibility = ["//tests/..."],
+)
+
+# A trivial tool binary that the plugin invokes during compilation.
+# If this tool is not available on PATH, the plugin's readProcess call
+# throws an IOException and GHC reports a compilation failure.
+haskell_binary(
+    name = "plugin_tool",
+    srcs = ["PluginTool.hs"],
+    link_style = "static",
+    deps = ["//tests:base"],
+    visibility = ["//tests/..."],
+)
+
+# ghc_plugin with tools and plugin_opts.
+# - tools: the plugin_tool binary, which the plugin invokes at compile time.
+# - plugin_opts: ["plugin_tool", "plugin_ok"]
+#   * "plugin_tool" = the tool name the plugin will invoke via readProcess
+#   * "plugin_ok"   = the replacement string for all string literals
+ghc_plugin(
+    name = "real_plugin",
+    module = "Plugin",
+    deps = [":plugin_lib"],
+    tools = [":plugin_tool"],
+    plugin_opts = ["plugin_tool", "plugin_ok"],
+    visibility = ["//tests/..."],
+)
+
+# =============================================================================
+# haskell_library targets with noop plugins (global)
+# =============================================================================
+
+# Test: haskell_library with global noop plugin, release build.
+# Verifies that a noop plugin can be enabled for all modules in a library.
+haskell_library(
+    name = "lib_plugin_release",
+    srcs = ["Lib.hs"],
+    compiler_flags = ["-O2"],
+    plugins = [":noop_plugin"],
+    deps = ["//tests:base"],
+    visibility = ["//tests/..."],
+)
+
+# Test: haskell_library with global noop plugin, debug build.
+haskell_library(
+    name = "lib_plugin_debug",
+    srcs = ["Lib.hs"],
+    compiler_flags = ["-O0"],
+    plugins = [":noop_plugin"],
+    deps = ["//tests:base"],
+    visibility = ["//tests/..."],
+)
+
+# =============================================================================
+# haskell_library targets with srcs_plugins (per-module)
+# =============================================================================
+
+# Test: haskell_library with per-module noop plugin, release build.
+haskell_library(
+    name = "lib_srcs_plugin_release",
+    srcs = ["Lib.hs"],
+    compiler_flags = ["-O2"],
+    srcs_plugins = {
+        "Lib.hs": [":noop_plugin"],
+    },
+    deps = ["//tests:base"],
+    visibility = ["//tests/..."],
+)
+
+# Test: haskell_library with per-module noop plugin, debug build.
+haskell_library(
+    name = "lib_srcs_plugin_debug",
+    srcs = ["Lib.hs"],
+    compiler_flags = ["-O0"],
+    srcs_plugins = {
+        "Lib.hs": [":noop_plugin"],
+    },
+    deps = ["//tests:base"],
+    visibility = ["//tests/..."],
+)
+
+# =============================================================================
+# haskell_library with real plugin (tools + opts)
+# =============================================================================
+
+# Test: haskell_library compiled with the real plugin that invokes a tool and
+# replaces string literals. The plugin_opts supply the tool name and the
+# replacement string. Compilation fails if the tool is not on PATH.
+haskell_library(
+    name = "lib_real_plugin",
+    srcs = ["PluginLib.hs"],
+    plugins = [":real_plugin"],
+    deps = ["//tests:base"],
+    visibility = ["//tests/..."],
+)
+
+# =============================================================================
+# haskell_binary targets with noop plugins — static linking
+# =============================================================================
+
+# Test: haskell_binary with global noop plugin, static linking, release build.
+haskell_binary(
+    name = "bin_plugin_static_release",
+    srcs = ["Main.hs"],
+    link_style = "static",
+    compiler_flags = ["-O2"],
+    plugins = [":noop_plugin"],
+    deps = [
+        ":lib_plugin_release",
+        "//tests:base",
+    ],
+)
+
+# Test: haskell_binary with global noop plugin, static linking, debug build.
+haskell_binary(
+    name = "bin_plugin_static_debug",
+    srcs = ["Main.hs"],
+    link_style = "static",
+    compiler_flags = ["-O0"],
+    plugins = [":noop_plugin"],
+    deps = [
+        ":lib_plugin_debug",
+        "//tests:base",
+    ],
+)
+
+# =============================================================================
+# haskell_binary targets with noop plugins — shared linking
+# =============================================================================
+
+# Test: haskell_binary with global noop plugin, shared linking, release build.
+haskell_binary(
+    name = "bin_plugin_shared_release",
+    srcs = ["Main.hs"],
+    link_style = "shared",
+    compiler_flags = ["-O2"],
+    plugins = [":noop_plugin"],
+    deps = [
+        ":lib_plugin_release",
+        "//tests:base",
+    ],
+)
+
+# Test: haskell_binary with global noop plugin, shared linking, debug build.
+haskell_binary(
+    name = "bin_plugin_shared_debug",
+    srcs = ["Main.hs"],
+    link_style = "shared",
+    compiler_flags = ["-O0"],
+    plugins = [":noop_plugin"],
+    deps = [
+        ":lib_plugin_debug",
+        "//tests:base",
+    ],
+)
+
+# =============================================================================
+# haskell_binary targets with srcs_plugins
+# =============================================================================
+
+# Test: haskell_binary with per-module noop plugin, static linking, release.
+haskell_binary(
+    name = "bin_srcs_plugin_static_release",
+    srcs = ["Main.hs"],
+    link_style = "static",
+    compiler_flags = ["-O2"],
+    srcs_plugins = {
+        "Main.hs": [":noop_plugin"],
+    },
+    deps = [
+        ":lib_srcs_plugin_release",
+        "//tests:base",
+    ],
+)
+
+# Test: haskell_binary with per-module noop plugin, shared linking, debug.
+haskell_binary(
+    name = "bin_srcs_plugin_shared_debug",
+    srcs = ["Main.hs"],
+    link_style = "shared",
+    compiler_flags = ["-O0"],
+    srcs_plugins = {
+        "Main.hs": [":noop_plugin"],
+    },
+    deps = [
+        ":lib_srcs_plugin_debug",
+        "//tests:base",
+    ],
+)
+
+# =============================================================================
+# haskell_binary with real plugin (tools + opts) — the main test for tools
+# =============================================================================
+
+# Test: haskell_binary with real plugin that uses tools and plugin_opts.
+# The plugin invokes "plugin_tool" at compile time (fails if not on PATH).
+# The plugin replaces all string literals with "plugin_ok".
+# At runtime, PluginMain.hs checks that "plugin" was replaced with "plugin_ok";
+# the test fails if the replacement did not happen (i.e. opts were ignored).
+haskell_binary(
+    name = "bin_real_plugin_static",
+    srcs = ["PluginMain.hs"],
+    link_style = "static",
+    plugins = [":real_plugin"],
+    deps = [
+        "//tests:base",
+    ],
+)
+
+# Same test with shared linking.
+haskell_binary(
+    name = "bin_real_plugin_shared",
+    srcs = ["PluginMain.hs"],
+    link_style = "shared",
+    plugins = [":real_plugin"],
+    deps = [
+        "//tests:base",
+    ],
+)
+
+# =============================================================================
+# sh_tests wrapping binaries — verify correct runtime behavior
+# =============================================================================
+
+sh_test(
+    name = "test_bin_plugin_static_release",
+    test = ":bin_plugin_static_release",
+)
+
+sh_test(
+    name = "test_bin_plugin_static_debug",
+    test = ":bin_plugin_static_debug",
+)
+
+sh_test(
+    name = "test_bin_plugin_shared_release",
+    test = ":bin_plugin_shared_release",
+)
+
+sh_test(
+    name = "test_bin_plugin_shared_debug",
+    test = ":bin_plugin_shared_debug",
+)
+
+sh_test(
+    name = "test_bin_srcs_plugin_static_release",
+    test = ":bin_srcs_plugin_static_release",
+)
+
+sh_test(
+    name = "test_bin_srcs_plugin_shared_debug",
+    test = ":bin_srcs_plugin_shared_debug",
+)
+
+# Test: real plugin with tools + opts, static linking.
+# Compilation exercises the tool (readProcess). Runtime exercises the opts
+# (string literal replacement). Fails if either tool or opts are missing.
+sh_test(
+    name = "test_bin_real_plugin_static",
+    test = ":bin_real_plugin_static",
+)
+
+# Test: real plugin with tools + opts, shared linking.
+sh_test(
+    name = "test_bin_real_plugin_shared",
+    test = ":bin_real_plugin_shared",
+)
+
+# =============================================================================
+# haskell_test targets with noop plugins
+# =============================================================================
+
+# Test: haskell_test with global noop plugin, static linking, release build.
+haskell_test(
+    name = "ht_plugin_static_release",
+    srcs = ["TestMain.hs"],
+    link_style = "static",
+    compiler_flags = ["-O2"],
+    plugins = [":noop_plugin"],
+    deps = [
+        ":lib_plugin_release",
+        "//tests:base",
+    ],
+)
+
+# Test: haskell_test with global noop plugin, static linking, debug build.
+haskell_test(
+    name = "ht_plugin_static_debug",
+    srcs = ["TestMain.hs"],
+    link_style = "static",
+    compiler_flags = ["-O0"],
+    plugins = [":noop_plugin"],
+    deps = [
+        ":lib_plugin_debug",
+        "//tests:base",
+    ],
+)
+
+# Test: haskell_test with global noop plugin, shared linking, release build.
+haskell_test(
+    name = "ht_plugin_shared_release",
+    srcs = ["TestMain.hs"],
+    link_style = "shared",
+    compiler_flags = ["-O2"],
+    plugins = [":noop_plugin"],
+    deps = [
+        ":lib_plugin_release",
+        "//tests:base",
+    ],
+)
+
+# Test: haskell_test with global noop plugin, shared linking, debug build.
+haskell_test(
+    name = "ht_plugin_shared_debug",
+    srcs = ["TestMain.hs"],
+    link_style = "shared",
+    compiler_flags = ["-O0"],
+    plugins = [":noop_plugin"],
+    deps = [
+        ":lib_plugin_debug",
+        "//tests:base",
+    ],
+)
+
+# Test: haskell_test with per-module noop plugin, static linking.
+haskell_test(
+    name = "ht_srcs_plugin_static_release",
+    srcs = ["TestMain.hs"],
+    link_style = "static",
+    compiler_flags = ["-O2"],
+    srcs_plugins = {
+        "TestMain.hs": [":noop_plugin"],
+    },
+    deps = [
+        ":lib_srcs_plugin_release",
+        "//tests:base",
+    ],
+)
+
+# Test: haskell_test with per-module noop plugin, shared linking.
+haskell_test(
+    name = "ht_srcs_plugin_shared_debug",
+    srcs = ["TestMain.hs"],
+    link_style = "shared",
+    compiler_flags = ["-O0"],
+    srcs_plugins = {
+        "TestMain.hs": [":noop_plugin"],
+    },
+    deps = [
+        ":lib_srcs_plugin_debug",
+        "//tests:base",
+    ],
+)
+
+# =============================================================================
+# haskell_test with real plugin (tools + opts)
+# =============================================================================
+
+# Test: haskell_test with real plugin using tools and plugin_opts.
+# Compilation invokes the tool. Runtime verifies string replacement happened.
+# Fails at compile time if tool not found, fails at runtime if opts ignored.
+haskell_test(
+    name = "ht_real_plugin_static",
+    srcs = ["PluginTestMain.hs"],
+    link_style = "static",
+    plugins = [":real_plugin"],
+    deps = [
+        "//tests:base",
+    ],
+)
+
+# Same test with shared linking.
+haskell_test(
+    name = "ht_real_plugin_shared",
+    srcs = ["PluginTestMain.hs"],
+    link_style = "shared",
+    plugins = [":real_plugin"],
+    deps = [
+        "//tests:base",
+    ],
+)
+
+# =============================================================================
+# Order plugin: verifies plugin_opts arrive in declared order
+# =============================================================================
+
+# The OrderPlugin library checks that its options are exactly
+# ["alpha", "beta", "gamma"]. If they are missing or reordered,
+# compilation fails with an error.
+haskell_library(
+    name = "order_plugin_lib",
+    srcs = ["OrderPlugin.hs"],
+    deps = [
+        "//tests:base",
+        "//tests:ghc",
+    ],
+    visibility = ["//tests/..."],
+)
+
+ghc_plugin(
+    name = "order_plugin",
+    module = "OrderPlugin",
+    deps = [":order_plugin_lib"],
+    plugin_opts = ["alpha", "beta", "gamma"],
+    visibility = ["//tests/..."],
+)
+
+# Binary compiled with order_plugin — compilation succeeds only if
+# plugin_opts arrive in the declared order.
+haskell_binary(
+    name = "bin_order_plugin",
+    srcs = ["OrderMain.hs"],
+    link_style = "static",
+    plugins = [":order_plugin"],
+    deps = ["//tests:base"],
+)
+
+sh_test(
+    name = "test_bin_order_plugin",
+    test = ":bin_order_plugin",
+)
+
+haskell_test(
+    name = "ht_order_plugin",
+    srcs = ["OrderMain.hs"],
+    link_style = "static",
+    plugins = [":order_plugin"],
+    deps = ["//tests:base"],
+)
+
+# =============================================================================
+# Expected-failure tests (shell script)
+# =============================================================================
+# This test builds targets from expected_failures/ that are expected to fail,
+# and verifies that the error messages match.  The sh_test itself succeeds
+# when all expected failures produce the right errors.
+sh_test(
+    name = "test_expected_failures",
+    test = "test_expected_failures.sh",
+)
+
+# =============================================================================
+# Previously broken targets (haddock, ghci, mutual exclusion)
+# =============================================================================
+# These have been moved to the expected_failures/ sub-package and are tested
+# via test_expected_failures.sh, which verifies they fail with the expected
+# error messages.
