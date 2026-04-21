@@ -192,6 +192,12 @@ _DynamicDoCompileOptions = record(
     is_worker_execute = bool,
     allow_cache_upload = bool,
     link_group_libs = list[HaskellLinkGroupInfo],
+    # GHC plugin flags applied to all modules in the unit (from `plugins` attr).
+    # These flags will contain `-package-db`, `-plugin-package`,
+    # `-fplugin-opt=...`, etc
+    unit_plugin_flags = field(typing.Any, default = None),  # cmd_args | None
+    # Per-source plugin flags (from `srcs_plugins` attr). Source -> cmd_args.
+    srcs_plugin_flags = field(dict[typing.Any, typing.Any], default = {}),
 )
 
 def _strip_prefix(prefix: str, s: str) -> str:
@@ -316,6 +322,8 @@ UnitParams = record(
     haskell_toolchain = field(HaskellToolchainInfo),
     compiler_flags = field(list[str | ResolvedStringWithMacros]),
     is_worker_execute = field(bool),
+    # GHC plugin flags applied to all modules in the unit.
+    plugin_flags = field(typing.Any, default = None),  # cmd_args | None
 )
 
 def _add_dynamic_too_if_required(is_worker_execute: bool, link_style: LinkStyle, args: cmd_args) -> bool:
@@ -339,7 +347,13 @@ def unit_ghc_args(actions: AnalysisActions, arg: UnitParams) -> cmd_args:
         "-package-env=-",
     )
     args.add(arg.haskell_toolchain.compiler_flags)
+    # Plugin flags come before compiler_flags so that user-provided flags
+    # appear later on the GHC command line and can override earlier defaults.
+    if arg.plugin_flags != None:
+        args.add(arg.plugin_flags)
+
     args.add(arg.compiler_flags)
+
     args.add("-this-unit-id", arg.name)
 
     if arg.enable_profiling:
@@ -997,6 +1011,7 @@ def _common_compile_module_args(
         haskell_toolchain = arg.haskell_toolchain,
         compiler_flags = arg.compiler_flags,
         is_worker_execute = is_worker_execute,
+        plugin_flags = arg.unit_plugin_flags,
     )
 
     non_haskell_sources = [
@@ -1278,7 +1293,8 @@ def _compile_module(
         src_envs: None | dict[str, ArgLike],
         worker: None | WorkerInfo,
         allow_worker: bool,
-        allow_cache_upload: bool) -> CompiledModuleTSet:
+        allow_cache_upload: bool,
+        module_plugin_flags: typing.Any = None) -> CompiledModuleTSet:
     is_worker_execute = allow_worker and haskell_toolchain.use_worker
 
     abi_tag = actions.artifact_tag()
@@ -1397,6 +1413,13 @@ def _compile_module(
             "packagedb": packagedb_tag,
         }
 
+    # Add per-module plugin flags (from srcs_plugins).
+    # These are module-specific flags that we add after the unit-level compiler_flags
+    # in common_args.oneshot_args_for_file. In practice, this order should not make
+    # much difference to compilation.
+    if module_plugin_flags != None:
+        compile_args_for_file.add(module_plugin_flags)
+
     category_prefix = "haskell_compile_" + artifact_suffix.replace("-", "_")
 
     if not is_worker_execute:
@@ -1507,6 +1530,7 @@ def _compile_incr(
             worker = arg.worker,
             allow_worker = arg.allow_worker,
             allow_cache_upload = arg.allow_cache_upload,
+            module_plugin_flags = arg.srcs_plugin_flags.get(module.source),
         )
 
 def compile_args(
@@ -1528,9 +1552,15 @@ def compile_args(
         target_deps_args: cmd_args,
         link_group_libs: list[HaskellLinkGroupProvider],
         pkgname = None,
-        suffix: str = "") -> cmd_args:
+        suffix: str = "",
+        plugin_flags = None) -> cmd_args:
     args = cmd_args()
     args.add(haskell_toolchain.compiler_flags)
+
+    # Plugin flags come before compiler_flags so that user-provided flags
+    # appear later on the GHC command line.
+    if plugin_flags != None:
+        args.add(plugin_flags)
 
     # Some rules pass in RTS (e.g. `+RTS ... -RTS`) options for GHC, which can't
     # be parsed when inside an argsfile.
@@ -1704,6 +1734,7 @@ def _compile_non_incr(
             target_deps_args = common_args.target_deps_args,
             link_group_libs = arg.link_group_libs,
             pkgname = arg.pkgname,
+            plugin_flags = arg.unit_plugin_flags,
         ),
     )
 
@@ -1857,7 +1888,10 @@ def compile(
         pkgname: str,
         worker: WorkerInfo | None = None,
         incremental: bool = False,
-        is_haskell_binary: bool = False) -> CompileResultInfo:
+        is_haskell_binary: bool = False,
+        unit_plugin_flags = None,
+        srcs_plugin_flags = {},
+        extra_tool_paths = []) -> CompileResultInfo:
     artifact_suffix = get_artifact_suffix(link_style, enable_profiling)
 
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
@@ -1946,7 +1980,7 @@ def compile(
             haskell_direct_deps_lib_infos = haskell_direct_deps_lib_infos,
             enable_haddock = enable_haddock,
             enable_profiling = enable_profiling,
-            external_tool_paths = [tool[RunInfo] for tool in ctx.attrs.external_tools],
+            external_tool_paths = [tool[RunInfo] for tool in ctx.attrs.external_tools] + extra_tool_paths,
             ghc_wrapper = ctx.attrs._ghc_wrapper[RunInfo],
             haskell_toolchain = haskell_toolchain,
             label = ctx.label,
@@ -1965,6 +1999,8 @@ def compile(
             is_worker_execute = is_worker_execute,
             allow_cache_upload = ctx.attrs.allow_cache_upload,
             link_group_libs = attr_deps_haskell_link_group_infos(ctx, link_style),
+            unit_plugin_flags = unit_plugin_flags,
+            srcs_plugin_flags = srcs_plugin_flags,
         ),
     ))
 

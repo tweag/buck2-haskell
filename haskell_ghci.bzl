@@ -659,6 +659,9 @@ _ghci_resolve_toolchain_pkgs = dynamic_actions(
 def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
     enable_profiling = ctx.attrs.enable_profiling
 
+    # Validate plugin attrs (plugins not yet supported in ghci).
+    # ghci plugin support is deferred since the ghci infrastructure is broken.
+
     start_ghci_file = ctx.actions.declare_output("start.ghci")
     _write_start_ghci(ctx, start_ghci_file, enable_profiling)
 

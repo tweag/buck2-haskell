@@ -107,6 +107,12 @@ load(
 load(":pkg_conf.bzl", "append_pkg_conf_link_fields_for_link_infos")
 load(":resources.bzl", "haskell_attr_resources")
 load(
+    ":ghc_plugin.bzl",
+    "GhcPluginInfo",
+    "compute_plugin_flags",
+    "validate_plugins_attrs",
+)
+load(
     ":toolchain.bzl",
     "DynamicHaskellToolchainPackageDbInfo",
     "DynamicHaskellToolchainLibraryInfo",
@@ -157,6 +163,20 @@ def _attr_preferred_linkage(ctx: AnalysisContext) -> Linkage:
         preferred_linkage = "static"
 
     return Linkage(preferred_linkage)
+
+def _get_all_plugin_tool_paths(ctx: AnalysisContext) -> list[RunInfo]:
+    """Collect RunInfo tool paths from all plugins (both global and per-module)."""
+    tools = []
+    for plugin_dep in getattr(ctx.attrs, "plugins", []):
+        info = plugin_dep[GhcPluginInfo]
+        for tool in info.tools:
+            tools.append(tool[RunInfo])
+    for _src, plugin_list in getattr(ctx.attrs, "srcs_plugins", {}).items():
+        for plugin_dep in plugin_list:
+            info = plugin_dep[GhcPluginInfo]
+            for tool in info.tools:
+                tools.append(tool[RunInfo])
+    return tools
 
 # --
 
@@ -795,7 +815,10 @@ def _build_haskell_lib(
         md_file: Artifact,
         # The non-profiling artifacts are also needed to build the package for
         # profiling, so it should be passed when `enable_profiling` is True.
-        non_profiling_hlib: [HaskellLibBuildOutput, None] = None) -> HaskellLibBuildOutput:
+        non_profiling_hlib: [HaskellLibBuildOutput, None] = None,
+        unit_plugin_flags = None,
+        srcs_plugin_flags = {},
+        extra_tool_paths = []) -> HaskellLibBuildOutput:
     linker_info = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info
 
     # Link the objects into a library
@@ -815,6 +838,9 @@ def _build_haskell_lib(
         worker = worker,
         incremental = ctx.attrs.incremental,
         is_haskell_binary = False,
+        unit_plugin_flags = unit_plugin_flags,
+        srcs_plugin_flags = srcs_plugin_flags,
+        extra_tool_paths = extra_tool_paths,
     )
     solibs = {}
     artifact_suffix = get_artifact_suffix(link_style, enable_profiling)
@@ -1093,6 +1119,12 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     worker = ctx.attrs._worker[WorkerInfo] if ctx.attrs._worker else None
 
+    # Validate and compute GHC plugin flags.
+    validate_plugins_attrs(ctx)
+    # Plugin flags depend on link_style so we compute them inside the loop.
+    # Plugin tool paths are link_style-independent.
+    plugin_tool_paths = _get_all_plugin_tool_paths(ctx)
+
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
 
     # The non-profiling library is also needed to build the package with
@@ -1105,6 +1137,8 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
             if link_style == LinkStyle("shared") and enable_profiling:
                 # Profiling isn't support with dynamic linking
                 continue
+
+            pf = compute_plugin_flags(ctx, link_style)
 
             # Request the build plan from GHC in order to resolve dependencies between modules.
             # This is executed for each output style even though the dependency graph is independent of it.
@@ -1136,6 +1170,9 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 enable_haddock = not enable_profiling and not non_profiling_hlib,
                 md_file = md_file,
                 non_profiling_hlib = non_profiling_hlib.get(link_style),
+                unit_plugin_flags = pf.unit,
+                srcs_plugin_flags = pf.srcs,
+                extra_tool_paths = plugin_tool_paths,
             )
             if not enable_profiling:
                 non_profiling_hlib[link_style] = hlib_build_out
@@ -1499,6 +1536,11 @@ def _haskell_executable(ctx: AnalysisContext) -> HaskellExecutableOutput:
 
     worker = ctx.attrs._worker[WorkerInfo] if ctx.attrs._worker else None
 
+    # Validate and compute GHC plugin flags.
+    validate_plugins_attrs(ctx)
+    pf = compute_plugin_flags(ctx, link_style)
+    plugin_tool_paths = _get_all_plugin_tool_paths(ctx)
+
     md_file = target_metadata(
         ctx,
         link_style = link_style,
@@ -1521,6 +1563,9 @@ def _haskell_executable(ctx: AnalysisContext) -> HaskellExecutableOutput:
         worker = worker,
         pkgname = pkgname,
         is_haskell_binary = True,
+        unit_plugin_flags = pf.unit,
+        srcs_plugin_flags = pf.srcs,
+        extra_tool_paths = plugin_tool_paths,
     )
 
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]

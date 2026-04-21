@@ -14,6 +14,7 @@ load(
     "haskell_test_impl",
     "haskell_toolchain_library_impl",
 )
+load(":ghc_plugin.bzl", "GhcPluginInfo", "ghc_plugin_impl")
 load(":haskell_ghci.bzl", "haskell_ghci_impl")
 load(":haskell_haddock.bzl", "haskell_haddock_impl")
 load(":haskell_ide.bzl", "haskell_ide_impl")
@@ -162,7 +163,8 @@ def _extra_libraries_arg():
 def _incremental_arg():
     return {
         "incremental": attrs.bool(default = True, doc = """
-    Use module-level incremental build
+    Use module-level incremental build. Setting it to `False` is mutually
+    exclusive with `srcs_plugins`.
 """),
     }
 
@@ -176,6 +178,19 @@ def _allow_cache_upload_arg():
 def _resources_arg():
     return {
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
+    }
+
+def _plugins_arg():
+    return {
+        "plugins": attrs.list(attrs.dep(providers = [GhcPluginInfo]), default = [], doc = """
+    A list of GHC compiler plugins to enable globally for all modules in this target.
+    Each entry must be a `ghc_plugin()` target. Mutually exclusive with `srcs_plugins`.
+"""),
+        "srcs_plugins": attrs.dict(attrs.source(), attrs.list(attrs.dep(providers = [GhcPluginInfo])), default = {}, doc = """
+    Per-module plugin configuration. Maps source files to lists of `ghc_plugin()` targets
+    to enable for that specific module. Modules without an entry have no plugins enabled.
+    Mutually exclusive with `plugins` and `incremental = False`.
+"""),
     }
 
 haskell_common = struct(
@@ -194,6 +209,7 @@ haskell_common = struct(
     incremental_arg = _incremental_arg,
     allow_cache_upload_arg = _allow_cache_upload_arg,
     resources_arg = _resources_arg,
+    plugins_arg = _plugins_arg,
 )
 
 _common_binary_attrs = (
@@ -216,6 +232,7 @@ _common_binary_attrs = (
     haskell_common.ghc_rts_flags_arg() |
     haskell_common.deps_arg() |
     haskell_common.resources_arg() |
+    haskell_common.plugins_arg() |
     haskell_common.scripts_arg() |
     haskell_common.module_prefix_arg() |
     haskell_common.strip_prefix_arg() |
@@ -357,7 +374,8 @@ haskell_ghci = rule(
             "template_deps": attrs.list(attrs.exec_dep(providers = [HaskellLibraryProvider]), default = []),
             "_cxx_toolchain": toolchains_common.cxx(),
             "_haskell_toolchain": haskell_toolchain(),
-        }
+        } |
+        _plugins_arg()
     ),
 )
 
@@ -422,6 +440,7 @@ haskell_library = rule(
         haskell_common.ghc_rts_flags_arg() |
         haskell_common.deps_arg() |
         haskell_common.resources_arg() |
+        haskell_common.plugins_arg() |
         haskell_common.scripts_arg() |
         haskell_common.module_prefix_arg() |
         haskell_common.strip_prefix_arg() |
@@ -525,7 +544,87 @@ haskell_prebuilt_library = rule(
     ),
 )
 
+ghc_plugin = rule(
+    impl = ghc_plugin_impl,
+    doc = """
+        A `ghc_plugin` rule defines a plugin from a Haskell library.
+        When a `haskell_library`, `haskell_binary`,
+        `haskell_test`, or `haskell_ghci` target depends on a plugin via the `plugins`
+        attribute, the plugin is enabled globally for all modules in the unit. The
+        `srcs_plugins` attribute instead enables plugins on a per-module basis.
+
+        ## Example: global plugin
+
+        ```python
+        ghc_plugin(
+            name = "my_plugin",
+            module = "MyPlugin",
+            deps = [":my_plugin_lib"],
+        )
+
+        haskell_library(
+            name = "my_lib",
+            srcs = ["Lib.hs"],
+            plugins = [":my_plugin"],
+            deps = ["//tests:base"],
+        )
+        ```
+
+        ## Example: per-module plugin via srcs_plugins
+
+        ```python
+        ghc_plugin(
+            name = "my_plugin",
+            module = "MyPlugin",
+            deps = [":my_plugin_lib"],
+        )
+
+        haskell_library(
+            name = "my_lib",
+            srcs = ["A.hs", "B.hs"],
+            srcs_plugins = {
+                "A.hs": [":my_plugin"],
+            },
+            deps = ["//tests:base"],
+        )
+        ```
+
+        ## Example: plugin with tools
+
+        ```python
+        ghc_plugin(
+            name = "my_plugin",
+            module = "MyPlugin",
+            deps = [":my_plugin_lib"],
+            tools = [":my_tool"],
+        )
+
+        haskell_binary(
+            name = "my_bin",
+            srcs = ["Main.hs"],
+            plugins = [":my_plugin"],
+            deps = ["//tests:base"],
+        )
+        ```
+    """,
+    attrs = {
+        "deps": attrs.list(attrs.dep(providers = [HaskellLibraryProvider]), default = [], doc = """
+            Haskell library dependencies that provide the plugin module.
+        """),
+        "module": attrs.string(doc = """
+            The Haskell module name that provides the plugin (e.g. "MyPlugin").
+        """),
+        "tools": attrs.list(attrs.dep(providers = [RunInfo]), default = [], doc = """
+            External tools that must be available when using the plugin during compilation.
+        """),
+        "plugin_opts": attrs.list(attrs.string(), default = [], doc = """
+            Options to pass to the plugin via `-fplugin-opt`.
+        """),
+    },
+)
+
 haskell_rules = struct(
+    ghc_plugin = ghc_plugin,
     haskell_binary = haskell_binary,
     haskell_ghci = haskell_ghci,
     haskell_haddock = haskell_haddock,
