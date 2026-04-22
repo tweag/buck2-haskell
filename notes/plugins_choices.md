@@ -122,23 +122,27 @@ chosen to be specific enough to avoid false positives:
 - `"GHC binary path"` — actual ghci failure message
 - `"already used by another action"` — actual haddock failure message
 
-### 9. Plugin tools automatically injected into compilation PATH
+### 9. Plugin tools scoped per-module for `srcs_plugins`
 
-**Decision:** Plugin tools (from `ghc_plugin.tools`) provide `RunInfo` and
-are automatically merged into the compilation `external_tool_paths`. This is
-done via `_get_all_plugin_tool_paths()` in `haskell.bzl` which collects
-`RunInfo` from all plugins (both global and per-module), and the `compile()`
-function in `compile.bzl` accepts an `extra_tool_paths` parameter that is
-merged with `external_tool_paths`.
+**Decision:** Plugin tools (from `ghc_plugin.tools`) are split into two scopes:
+- **Global plugin tools** (from `plugins` attr) are injected into
+  `extra_tool_paths` and become available to all modules via `--bin-exe=` in
+  `unit_buck2_args()`.
+- **Per-module plugin tools** (from `srcs_plugins` attr) are computed in
+  `compute_plugin_flags()` as `srcs_tool_paths`, threaded through
+  `_DynamicDoCompileOptions.srcs_plugin_tool_paths`, and added as `--bin-exe=`
+  args only in `_compile_module()` for the specific module that uses the plugin.
 
-**Reason:** The `ghc_wrapper.py` script accepts `--bin-exe=<path>` arguments
-and adds each executable's directory to `PATH`. By injecting plugin tool
-`RunInfo` into this mechanism, the tool binaries become available on `PATH`
-during compilation. This is essential for plugins like the test `Plugin.hs`
-which invokes tools via `readProcess` — without the tool on `PATH`, the
-plugin fails at compile time. Unlike rules_haskell which uses `$(location)`
-macro expansion for absolute tool paths, buck2-haskell uses PATH-based
-discovery, so the plugin finds tools by name rather than by absolute path.
+**Reason:** Previously, `_get_all_plugin_tool_paths()` collected tools from
+both global and per-module plugins and passed them all as `extra_tool_paths`,
+making every module in the unit depend on every plugin tool binary. This
+created unnecessary build dependencies: modules that don't use a plugin would
+still wait for that plugin's tools to be built. By scoping per-module plugin
+tools to only the modules that reference them, each module depends only on the
+tools it actually needs. Global plugin tools remain available to all modules
+since they apply to every compilation unit. The per-module tool paths are added
+to `wrapper_args_for_file` (not `compile_args_for_file`) because `--bin-exe=`
+is a `ghc_wrapper.py` flag, not a GHC flag.
 
 ### 10. Compiler flags come after plugin opts in GHC invocation
 

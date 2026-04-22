@@ -121,18 +121,38 @@ def compute_plugin_flags(ctx: AnalysisContext, link_style) -> struct:
     Returns a struct with:
         unit: cmd_args for global plugins (from ctx.attrs.plugins), or None
         srcs: dict mapping source file to cmd_args for per-module plugins
+        global_tool_paths: list[RunInfo] for global plugin tools
+        srcs_tool_paths: dict mapping source file to list[RunInfo] for per-module plugin tools
     """
     unit = get_plugin_flags(ctx, link_style)
     srcs = {}
+    global_tool_paths = []
+    srcs_tool_paths = {}
+
+    for plugin_dep in getattr(ctx.attrs, "plugins", []):
+        info = plugin_dep[GhcPluginInfo]
+        for tool in info.tools:
+            global_tool_paths.append(tool[RunInfo])
+
     if getattr(ctx.attrs, "srcs_plugins", None):
         for src, plugin_list in ctx.attrs.srcs_plugins.items():
             flags = cmd_args()
+            tools = []
             for plugin_dep in plugin_list:
                 plugin_info = plugin_dep[GhcPluginInfo]
                 flags.add(get_plugin_flags(ctx, link_style, plugin_info = plugin_info))
+                for tool in plugin_info.tools:
+                    tools.append(tool[RunInfo])
             srcs[src] = flags
+            if tools:
+                srcs_tool_paths[src] = tools
 
-    return struct(unit = unit, srcs = srcs)
+    return struct(
+        unit = unit,
+        srcs = srcs,
+        global_tool_paths = global_tool_paths,
+        srcs_tool_paths = srcs_tool_paths,
+    )
 
 def get_plugin_tool_paths(plugins: list[Dependency]) -> list[RunInfo]:
     """Extract RunInfo tool paths from all plugins."""

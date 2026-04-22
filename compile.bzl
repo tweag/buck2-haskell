@@ -198,6 +198,8 @@ _DynamicDoCompileOptions = record(
     unit_plugin_flags = field(typing.Any, default = None),  # cmd_args | None
     # Per-source plugin flags (from `srcs_plugins` attr). Source -> cmd_args.
     srcs_plugin_flags = field(dict[typing.Any, typing.Any], default = {}),
+    # Per-source plugin tool paths (from `srcs_plugins` attr). Source -> list[RunInfo].
+    srcs_plugin_tool_paths = field(dict[typing.Any, typing.Any], default = {}),
 )
 
 def _strip_prefix(prefix: str, s: str) -> str:
@@ -1294,7 +1296,8 @@ def _compile_module(
         worker: None | WorkerInfo,
         allow_worker: bool,
         allow_cache_upload: bool,
-        module_plugin_flags: typing.Any = None) -> CompiledModuleTSet:
+        module_plugin_flags: typing.Any = None,
+        module_plugin_tool_paths: typing.Any = None) -> CompiledModuleTSet:
     is_worker_execute = allow_worker and haskell_toolchain.use_worker
 
     abi_tag = actions.artifact_tag()
@@ -1420,6 +1423,12 @@ def _compile_module(
     if module_plugin_flags != None:
         compile_args_for_file.add(module_plugin_flags)
 
+    # Add per-module plugin tool paths as --bin-exe= args so only the modules
+    # that use srcs_plugins depend on the corresponding tool executables.
+    if module_plugin_tool_paths != None:
+        for tool_run_info in module_plugin_tool_paths:
+            wrapper_args_for_file.add(cmd_args(tool_run_info, format = "--bin-exe={}"))
+
     category_prefix = "haskell_compile_" + artifact_suffix.replace("-", "_")
 
     if not is_worker_execute:
@@ -1531,6 +1540,7 @@ def _compile_incr(
             allow_worker = arg.allow_worker,
             allow_cache_upload = arg.allow_cache_upload,
             module_plugin_flags = arg.srcs_plugin_flags.get(module.source),
+            module_plugin_tool_paths = arg.srcs_plugin_tool_paths.get(module.source),
         )
 
 def compile_args(
@@ -1891,7 +1901,8 @@ def compile(
         is_haskell_binary: bool = False,
         unit_plugin_flags = None,
         srcs_plugin_flags = {},
-        extra_tool_paths = []) -> CompileResultInfo:
+        extra_tool_paths = [],
+        srcs_plugin_tool_paths = {}) -> CompileResultInfo:
     artifact_suffix = get_artifact_suffix(link_style, enable_profiling)
 
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
@@ -2001,6 +2012,7 @@ def compile(
             link_group_libs = attr_deps_haskell_link_group_infos(ctx, link_style),
             unit_plugin_flags = unit_plugin_flags,
             srcs_plugin_flags = srcs_plugin_flags,
+            srcs_plugin_tool_paths = srcs_plugin_tool_paths,
         ),
     ))
 
