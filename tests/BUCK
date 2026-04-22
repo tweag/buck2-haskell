@@ -14,8 +14,10 @@ load("@toolchains//ghci.bzl", "ghci")
     "containers",
     "directory",
     "filepath",
+    "ghc",
     "hspec",
     "hspec-expectations",
+    "process",
     # keep-sorted end
 ]]
 

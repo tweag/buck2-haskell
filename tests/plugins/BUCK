@@ -1,0 +1,304 @@
+load(
+    "@buck2-haskell//:defs.bzl",
+    "ghc_plugin",
+    "haskell_binary",
+    "haskell_library",
+    "haskell_test",
+)
+
+# =============================================================================
+# Plugin library and ghc_plugin rules
+# =============================================================================
+
+# Real plugin: invokes a tool via readProcess at compile time (compile fails
+# if the tool is not on PATH) and replaces every string literal with a
+# replacement string passed via plugin_opts (runtime test detects if the
+# replacement didn't happen).
+haskell_library(
+    name = "plugin_lib",
+    srcs = ["Plugin.hs"],
+    deps = [
+        "//tests:base",
+        "//tests:bytestring",
+        "//tests:ghc",
+        "//tests:process",
+    ],
+    visibility = ["//tests/..."],
+)
+
+# A trivial tool binary that the plugin invokes during compilation.
+# If this tool is not available on PATH, the plugin's readProcess call
+# throws an IOException and GHC reports a compilation failure.
+haskell_binary(
+    name = "plugin_tool",
+    srcs = ["PluginTool.hs"],
+    link_style = "static",
+    deps = ["//tests:base"],
+    visibility = ["//tests/..."],
+)
+
+# ghc_plugin with tools and plugin_opts.
+# - tools: the plugin_tool binary, invoked at compile time.
+# - plugin_opts: ["plugin_tool", "plugin_ok"]
+#   * "plugin_tool" = the tool name the plugin will invoke via readProcess
+#   * "plugin_ok"   = the replacement string for all string literals
+ghc_plugin(
+    name = "real_plugin",
+    module = "Plugin",
+    deps = [":plugin_lib"],
+    tools = [":plugin_tool"],
+    plugin_opts = ["plugin_tool", "plugin_ok"],
+    visibility = ["//tests/..."],
+)
+
+# Order plugin: verifies plugin_opts arrive as ["alpha", "beta", "gamma"].
+# Compilation fails if options are missing or reordered.
+haskell_library(
+    name = "order_plugin_lib",
+    srcs = ["OrderPlugin.hs"],
+    deps = [
+        "//tests:base",
+        "//tests:ghc",
+    ],
+    visibility = ["//tests/..."],
+)
+
+ghc_plugin(
+    name = "order_plugin",
+    module = "OrderPlugin",
+    deps = [":order_plugin_lib"],
+    plugin_opts = ["alpha"],
+    visibility = ["//tests/..."],
+)
+
+# =============================================================================
+# haskell_library targets with real plugin (global)
+# =============================================================================
+
+# Library compiled with the real plugin: the plugin replaces the string literal
+# in PluginLib.greeting at compile time.
+haskell_library(
+    name = "lib_real_plugin",
+    srcs = ["PluginLib.hs"],
+    plugins = [":real_plugin"],
+    deps = ["//tests:base"],
+    visibility = ["//tests/..."],
+)
+
+# Consumer test: imports PluginLib.greeting and verifies it was replaced.
+haskell_test(
+    name = "ht_lib_real_plugin",
+    srcs = ["TestPluginLib.hs"],
+    deps = [
+        "//tests:base",
+        ":lib_real_plugin",
+    ],
+)
+
+# =============================================================================
+# haskell_library targets with real plugin (srcs_plugins / per-module)
+# =============================================================================
+
+haskell_library(
+    name = "lib_srcs_real_plugin",
+    srcs = ["PluginLib.hs"],
+    srcs_plugins = {
+        "PluginLib.hs": [":real_plugin"],
+    },
+    deps = ["//tests:base"],
+    visibility = ["//tests/..."],
+)
+
+haskell_test(
+    name = "ht_lib_srcs_real_plugin",
+    srcs = ["TestPluginLib.hs"],
+    deps = [
+        "//tests:base",
+        ":lib_srcs_real_plugin",
+    ],
+)
+
+# =============================================================================
+# haskell_library targets with order plugin
+# =============================================================================
+
+haskell_library(
+    name = "lib_order_plugin",
+    srcs = ["Lib.hs"],
+    plugins = [":order_plugin"],
+    deps = ["//tests:base"],
+    compiler_flags = [
+        "-fplugin-opt=OrderPlugin:beta",
+        "-fplugin-opt=OrderPlugin:gamma",
+    ],
+    visibility = ["//tests/..."],
+)
+
+haskell_test(
+    name = "ht_lib_order_plugin",
+    srcs = ["Main.hs"],
+    deps = [
+        "//tests:base",
+        ":lib_order_plugin",
+    ],
+)
+
+# =============================================================================
+# haskell_binary targets with real plugin — static + shared
+# =============================================================================
+
+haskell_binary(
+    name = "bin_real_plugin_static",
+    srcs = ["PluginMain.hs"],
+    link_style = "static",
+    plugins = [":real_plugin"],
+    deps = ["//tests:base"],
+)
+
+haskell_binary(
+    name = "bin_real_plugin_shared",
+    srcs = ["PluginMain.hs"],
+    link_style = "shared",
+    plugins = [":real_plugin"],
+    deps = ["//tests:base"],
+)
+
+# =============================================================================
+# haskell_binary targets with real plugin via srcs_plugins — static + shared
+# =============================================================================
+
+haskell_binary(
+    name = "bin_srcs_real_plugin_static",
+    srcs = ["PluginMain.hs"],
+    link_style = "static",
+    srcs_plugins = {
+        "PluginMain.hs": [":real_plugin"],
+    },
+    deps = ["//tests:base"],
+)
+
+haskell_binary(
+    name = "bin_srcs_real_plugin_shared",
+    srcs = ["PluginMain.hs"],
+    link_style = "shared",
+    srcs_plugins = {
+        "PluginMain.hs": [":real_plugin"],
+    },
+    deps = ["//tests:base"],
+)
+
+# =============================================================================
+# haskell_binary with order plugin
+# =============================================================================
+
+haskell_binary(
+    name = "bin_order_plugin",
+    srcs = ["OrderMain.hs"],
+    link_style = "static",
+    plugins = [":order_plugin"],
+    deps = ["//tests:base"],
+    compiler_flags = [
+        "-fplugin-opt=OrderPlugin:beta",
+        "-fplugin-opt=OrderPlugin:gamma",
+    ],
+)
+
+# =============================================================================
+# sh_tests wrapping binaries — verify correct runtime behavior
+# =============================================================================
+
+sh_test(
+    name = "test_bin_real_plugin_static",
+    test = ":bin_real_plugin_static",
+)
+
+sh_test(
+    name = "test_bin_real_plugin_shared",
+    test = ":bin_real_plugin_shared",
+)
+
+sh_test(
+    name = "test_bin_srcs_real_plugin_static",
+    test = ":bin_srcs_real_plugin_static",
+)
+
+sh_test(
+    name = "test_bin_srcs_real_plugin_shared",
+    test = ":bin_srcs_real_plugin_shared",
+)
+
+sh_test(
+    name = "test_bin_order_plugin",
+    test = ":bin_order_plugin",
+)
+
+# =============================================================================
+# haskell_test targets with real plugin — global
+# =============================================================================
+
+haskell_test(
+    name = "ht_real_plugin_static",
+    srcs = ["PluginMain.hs"],
+    link_style = "static",
+    plugins = [":real_plugin"],
+    deps = ["//tests:base"],
+)
+
+haskell_test(
+    name = "ht_real_plugin_shared",
+    srcs = ["PluginMain.hs"],
+    link_style = "shared",
+    plugins = [":real_plugin"],
+    deps = ["//tests:base"],
+)
+
+# =============================================================================
+# haskell_test targets with real plugin — srcs_plugins
+# =============================================================================
+
+haskell_test(
+    name = "ht_srcs_real_plugin_static",
+    srcs = ["PluginMain.hs"],
+    link_style = "static",
+    srcs_plugins = {
+        "PluginMain.hs": [":real_plugin"],
+    },
+    deps = ["//tests:base"],
+)
+
+haskell_test(
+    name = "ht_srcs_real_plugin_shared",
+    srcs = ["PluginMain.hs"],
+    link_style = "shared",
+    srcs_plugins = {
+        "PluginMain.hs": [":real_plugin"],
+    },
+    deps = ["//tests:base"],
+)
+
+# =============================================================================
+# haskell_test targets with order plugin
+# =============================================================================
+
+haskell_test(
+    name = "ht_order_plugin",
+    srcs = ["OrderMain.hs"],
+    link_style = "static",
+    plugins = [":order_plugin"],
+    deps = ["//tests:base"],
+    compiler_flags = [
+        "-fplugin-opt=OrderPlugin:beta",
+        "-fplugin-opt=OrderPlugin:gamma",
+    ],
+)
+
+# =============================================================================
+# Expected-failure tests (shell script)
+# =============================================================================
+# This test builds targets from expected_failures/ that are expected to fail,
+# and verifies that the error messages match.  The sh_test itself succeeds
+# when all expected failures produce the right errors.
+sh_test(
+    name = "test_expected_failures",
+    test = "test_expected_failures.sh",
+)

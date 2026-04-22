@@ -171,15 +171,14 @@ incremental builds.
 ## Test files
 
 - **`buck2-haskell/tests/plugins/`** — Complete test suite:
-  - `NoopPlugin.hs` — Minimal GHC plugin using `defaultPlugin` for basic plumbing tests
   - `Plugin.hs` — Real GHC plugin that invokes a tool via `readProcess` and replaces string literals (exercises `tools` and `plugin_opts`)
   - `PluginTool.hs` — Trivial binary invoked by `Plugin.hs` at compile time
   - `PluginLib.hs` — Library compiled with the real plugin
-  - `PluginMain.hs` — Binary that verifies string replacement at runtime
-  - `PluginTestMain.hs` — Test variant of the above
+  - `PluginMain.hs` — Binary/test that verifies string replacement at runtime
+  - `TestPluginLib.hs` — Consumer test for library targets compiled with the plugin
   - `OrderPlugin.hs` — Plugin that verifies `plugin_opts` arrive as `["alpha", "beta", "gamma"]` (flag ordering test)
   - `OrderMain.hs` — Minimal main for order plugin test
-  - `Lib.hs`, `Main.hs`, `TestMain.hs` — Modules for noop plugin tests
+  - `Lib.hs`, `Main.hs` — Modules for order plugin library tests
   - `test_expected_failures.sh` — Shell script testing expected-failure scenarios
   - `BUCK` — Test targets covering all combinations in the spec
 
@@ -189,34 +188,31 @@ incremental builds.
 
 ## Test Matrix
 
+Every test uses a plugin that **verifies its execution**: the real plugin
+invokes a tool and replaces string literals (compile-time and runtime checks),
+and the order plugin asserts option ordering (compile-time check). There are
+no noop plugin tests — a noop plugin cannot guarantee it was actually loaded.
+
 The test suite in `buck2-haskell/tests/plugins/` covers:
 
-| Rule type | Plugin mode | Link style | Build type | Target name |
+| Rule type | Plugin | Mode | Link style | Target name |
 |---|---|---|---|---|
-| `haskell_library` | noop global | any | release | `lib_plugin_release` |
-| `haskell_library` | noop global | any | debug | `lib_plugin_debug` |
-| `haskell_library` | noop srcs_plugins | any | release | `lib_srcs_plugin_release` |
-| `haskell_library` | noop srcs_plugins | any | debug | `lib_srcs_plugin_debug` |
-| `haskell_library` | **real (tools+opts)** | any | — | `lib_real_plugin` |
-| `haskell_library` | **order (flag ordering)** | any | — | `lib_order_plugin` |
-| `haskell_binary` | noop global | static | release | `bin_plugin_static_release` |
-| `haskell_binary` | noop global | static | debug | `bin_plugin_static_debug` |
-| `haskell_binary` | noop global | shared | release | `bin_plugin_shared_release` |
-| `haskell_binary` | noop global | shared | debug | `bin_plugin_shared_debug` |
-| `haskell_binary` | noop srcs_plugins | static | release | `bin_srcs_plugin_static_release` |
-| `haskell_binary` | noop srcs_plugins | shared | debug | `bin_srcs_plugin_shared_debug` |
-| `haskell_binary` | **real (tools+opts)** | static | — | `bin_real_plugin_static` |
-| `haskell_binary` | **real (tools+opts)** | shared | — | `bin_real_plugin_shared` |
-| `haskell_binary` | **order (flag ordering)** | static | — | `bin_order_plugin` |
-| `haskell_test` | noop global | static | release | `ht_plugin_static_release` |
-| `haskell_test` | noop global | static | debug | `ht_plugin_static_debug` |
-| `haskell_test` | noop global | shared | release | `ht_plugin_shared_release` |
-| `haskell_test` | noop global | shared | debug | `ht_plugin_shared_debug` |
-| `haskell_test` | noop srcs_plugins | static | release | `ht_srcs_plugin_static_release` |
-| `haskell_test` | noop srcs_plugins | shared | debug | `ht_srcs_plugin_shared_debug` |
-| `haskell_test` | **real (tools+opts)** | static | — | `ht_real_plugin_static` |
-| `haskell_test` | **real (tools+opts)** | shared | — | `ht_real_plugin_shared` |
-| `haskell_test` | **order (flag ordering)** | static | — | `ht_order_plugin` |
+| `haskell_library` | real (tools+opts) | global | any | `lib_real_plugin` |
+| `haskell_library` | real (tools+opts) | srcs_plugins | any | `lib_srcs_real_plugin` |
+| `haskell_library` | order (flag ordering) | global | any | `lib_order_plugin` |
+| `haskell_library` consumer | real (tools+opts) | — | static | `ht_lib_real_plugin` |
+| `haskell_library` consumer | real (tools+opts) | — | static | `ht_lib_srcs_real_plugin` |
+| `haskell_library` consumer | order (flag ordering) | — | static | `ht_lib_order_plugin` |
+| `haskell_binary` | real (tools+opts) | global | static | `bin_real_plugin_static` |
+| `haskell_binary` | real (tools+opts) | global | shared | `bin_real_plugin_shared` |
+| `haskell_binary` | real (tools+opts) | srcs_plugins | static | `bin_srcs_real_plugin_static` |
+| `haskell_binary` | real (tools+opts) | srcs_plugins | shared | `bin_srcs_real_plugin_shared` |
+| `haskell_binary` | order (flag ordering) | global | static | `bin_order_plugin` |
+| `haskell_test` | real (tools+opts) | global | static | `ht_real_plugin_static` |
+| `haskell_test` | real (tools+opts) | global | shared | `ht_real_plugin_shared` |
+| `haskell_test` | real (tools+opts) | srcs_plugins | static | `ht_srcs_real_plugin_static` |
+| `haskell_test` | real (tools+opts) | srcs_plugins | shared | `ht_srcs_real_plugin_shared` |
+| `haskell_test` | order (flag ordering) | global | static | `ht_order_plugin` |
 
 Tests marked **real (tools+opts)** use `Plugin.hs` which invokes a tool at
 compile time and replaces string literals. They fail if:
