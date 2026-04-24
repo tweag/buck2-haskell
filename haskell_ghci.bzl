@@ -641,7 +641,7 @@ def _ghci_resolve_toolchain_pkgs_impl(
     )
 
     pkg_db_args = cmd_args(
-        toolchain_package_db_tset.project_as_args("package_db"),
+        toolchain_package_db_tset.project_as_args("toolchain_package_db"),
         format = "-package-db {}",
     )
     actions.write(output, pkg_db_args)
@@ -743,7 +743,7 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
                 "packagedb": pkg_db,
             }
 
-            for prof, import_dir in lib.import_dirs.items():
+            for prof, import_dir in lib.interfaces.items():
                 artifact_suffix = get_artifact_suffix(link_style, prof)
                 for imp in import_dir:
                     lib_symlinks["mod-" + artifact_suffix + "/" + imp.short_path] = imp

@@ -192,32 +192,34 @@ haskell_test(
 # =============================================================================
 # haskell_ghci targets
 # =============================================================================
-# NOTE: haskell_ghci is currently broken due to:
-#    haskell_ghci.bzl:743 - references lib.import_dirs which no longer exists
-#    in the HaskellLibraryInfo record (replaced by lib.interfaces/lib.objects)
-# These targets are defined for completeness but cannot be tested until the
-# ghci module is updated to match the current library_info.bzl record schema.
 
 # Test: haskell_ghci with release optimization (-O2).
 # Verifies the ghci script is generated correctly with optimized library deps.
-# haskell_ghci(
-#     name = "ghci_release",
-#     compiler_flags = ["-O2"],
-#     ghci_bin_dep = "//tests:ghci_bin",
-#     deps = [
-#         ":lib_release",
-#         "//tests:base",
-#     ],
-# )
+haskell_ghci(
+    name = "ghci_release",
+    compiler_flags = ["-O2"],
+    ghci_bin_dep = "//tests:ghci_bin",
+    deps = [
+        ":lib_release",
+        "//tests:base",
+    ],
+)
 
 # Test: haskell_ghci with debug build (-O0).
 # Verifies the ghci script is generated correctly with unoptimized library deps.
-# haskell_ghci(
-#     name = "ghci_debug",
-#     compiler_flags = ["-O0"],
-#     ghci_bin_dep = "//tests:ghci_bin",
-#     deps = [
-#         ":lib_debug",
-#         "//tests:base",
-#     ],
-# )
+haskell_ghci(
+    name = "ghci_debug",
+    compiler_flags = ["-O0"],
+    ghci_bin_dep = "//tests:ghci_bin",
+    deps = [
+        ":lib_debug",
+        "//tests:base",
+    ],
+)
+
+# sh_test that runs both ghci targets via buck2 run and verifies Lib.greeting.
+sh_test(
+    name = "test_ghci",
+    test = "test_ghci.sh",
+    labels = ["buck2_run_from_project_root"],
+)
