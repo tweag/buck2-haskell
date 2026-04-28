@@ -74,12 +74,3 @@ haskell_library(
     deps = [":base"],
 )
 
-# --- Error: haskell_ghci is broken -----------------------------------------
-haskell_ghci(
-    name = "err_ghci_plugin",
-    plugins = [":noop_plugin"],
-    deps = [
-        ":noop_plugin_lib",
-        ":base",
-    ],
-)

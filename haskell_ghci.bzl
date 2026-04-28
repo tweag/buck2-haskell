@@ -59,6 +59,12 @@ load(
     "get_packages_info",
 )
 load(
+    ":ghc_plugin.bzl",
+    "GhcPluginInfo",
+    "get_plugin_flags",
+    "validate_plugins_attrs",
+)
+load(
     ":library_info.bzl",
     "HaskellLibraryInfo",
     "HaskellLibraryProvider",
@@ -67,6 +73,7 @@ load(
     ":toolchain.bzl",
     "DynamicHaskellToolchainPackageDbInfo",
     "HaskellToolchainInfo",
+    "HaskellToolchainLibrary",
     "HaskellToolchainPackageDbTSet",
 )
 load(
@@ -108,7 +115,8 @@ def _write_final_ghci_script(
         ghci_bin: Artifact,
         haskell_toolchain: HaskellToolchainInfo,
         ghci_script_template: Artifact,
-        enable_profiling: bool) -> Artifact:
+        enable_profiling: bool,
+        plugin_flags: [cmd_args, None] = None) -> Artifact:
     srcs = " ".join(
         [
             paths.normalize(paths.join(str(ctx.label.path), str(s)))
@@ -137,7 +145,11 @@ def _write_final_ghci_script(
             "-hisuf p_hi",
         ])
 
+    if plugin_flags:
+        compiler_flags.add(plugin_flags)
+
     compiler_flags.add(ctx.attrs.compiler_flags)
+
     omnibus_so = omnibus_data.omnibus
 
     final_ghci_script = _replace_macros_in_script_template(
@@ -591,6 +603,8 @@ def _write_start_ghci(
         enable_profiling: bool):
     start_cmd = cmd_args()
 
+    # base needs to be visible for the following unsetEnv call to succeed
+    start_cmd.add(":set -package base")
     # Reason for unsetting `LD_PRELOAD` env var obtained from D6255224:
     # "Certain libraries (like allocators) cannot be loaded after the process
     # has started. When needing to use these libraries, send them to a
@@ -659,8 +673,14 @@ _ghci_resolve_toolchain_pkgs = dynamic_actions(
 def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
     enable_profiling = ctx.attrs.enable_profiling
 
-    # Validate plugin attrs (plugins not yet supported in ghci).
-    # ghci plugin support is deferred since the ghci infrastructure is broken.
+    # Validate plugin attrs; srcs_plugins is not supported in GHCi.
+    srcs_plugins = getattr(ctx.attrs, "srcs_plugins", {})
+    if srcs_plugins:
+        fail(
+            "haskell_ghci '{}' does not support srcs_plugins. ".format(ctx.label) +
+            "Use the 'plugins' attribute for global plugin support instead.",
+        )
+    validate_plugins_attrs(ctx)
 
     start_ghci_file = ctx.actions.declare_output("start.ghci")
     _write_start_ghci(ctx, start_ghci_file, enable_profiling)
@@ -684,7 +704,6 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     link_style = LinkStyle("shared")
-    #link_style = LinkStyle("static_pic")
 
     haskell_direct_deps_lib_infos = attr_deps_haskell_lib_infos(
         ctx,
@@ -694,7 +713,7 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
 
     packages_info = get_packages_info(
         actions = ctx.actions,
-        deps = [],
+        deps = attr_deps(ctx),
         direct_deps_link_info = attr_deps_haskell_link_infos(ctx),
         haskell_toolchain = haskell_toolchain,
         haskell_direct_deps_lib_infos = haskell_direct_deps_lib_infos,
@@ -721,6 +740,15 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
 
     for lib in packages_info.transitive_deps.reduce("toolchain_packages"):
         packages_info.exposed_package_args.add("-package", lib.name)
+
+    # Also expose direct toolchain library deps (e.g. base) that aren't
+    # reachable via transitive HaskellLibraryInfo deps.
+    for dep in attr_deps(ctx):
+        if HaskellToolchainLibrary in dep:
+            packages_info.exposed_package_args.add(
+                "-package",
+                dep[HaskellToolchainLibrary].name,
+            )
 
     # Create package db symlinks
     package_symlinks = []
@@ -802,6 +830,25 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
 
     omnibus_data = _build_haskell_omnibus_so(ctx)
 
+    # Compute plugin flags and collect tool paths.
+    plugin_flags = get_plugin_flags(ctx, link_style)
+    plugin_tool_symlinks = {}
+    plugin_hidden = []
+    for plugin_dep in getattr(ctx.attrs, "plugins", []):
+        info = plugin_dep[GhcPluginInfo]
+        for tool_dep in info.tools:
+            run_info = tool_dep[RunInfo]
+            tool_output = tool_dep[DefaultInfo].default_outputs[0]
+            plugin_tool_symlinks[tool_output.basename] = tool_output
+            plugin_hidden.append(run_info)
+
+    plugin_tools_dir = None
+    if plugin_tool_symlinks:
+        plugin_tools_dir = ctx.actions.symlinked_dir(
+            ctx.label.name + ".plugin-tools",
+            plugin_tool_symlinks,
+        )
+
     final_ghci_script = _write_final_ghci_script(
         ctx,
         omnibus_data,
@@ -814,6 +861,7 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
         haskell_toolchain,
         ghci_script_template,
         enable_profiling,
+        plugin_flags = plugin_flags,
     )
 
     outputs = [
@@ -826,6 +874,8 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
         final_ghci_script,
         toolchain_pkg_args_file,
     ]
+    if plugin_tools_dir:
+        outputs.append(plugin_tools_dir)
     outputs.extend(package_symlinks)
     outputs.extend(script_templates)
 
@@ -839,7 +889,9 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     ghci_bin_dep = ctx.attrs.ghci_bin_dep.get(RunInfo)
     hidden_dep = [ghci_bin_dep] if ghci_bin_dep else []
-    run = cmd_args(final_ghci_script, hidden=hidden_dep + outputs)
+    # Include plugin_flags in hidden deps so Buck2 materializes plugin
+    # package DBs, .hi files, .o files, and shared libraries at runtime.
+    run = cmd_args(final_ghci_script, hidden=hidden_dep + outputs + plugin_hidden + [plugin_flags])
 
     return [
         DefaultInfo(default_outputs = [root_output_dir]),

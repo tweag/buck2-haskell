@@ -56,11 +56,6 @@ expect_failure \
     "buck2-haskell//expected_failures:err_srcs_plugins_non_incremental" \
     "Per-module plugins require incremental"
 
-# 4. haskell_ghci is broken (GHC binary path not configured)
-expect_failure \
-    "buck2-haskell//expected_failures:err_ghci_plugin" \
-    "GHC binary path"
-
 echo
 echo "=== Results: $PASS passed, $FAIL failed ==="
 

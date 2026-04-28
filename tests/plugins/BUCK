@@ -2,6 +2,7 @@ load(
     "@buck2-haskell//:defs.bzl",
     "ghc_plugin",
     "haskell_binary",
+    "haskell_ghci",
     "haskell_haddock",
     "haskell_library",
     "haskell_test",
@@ -287,6 +288,32 @@ haskell_test(
     link_style = "static",
     plugins = [":order_plugin"],
     deps = ["//tests:base"],
+    compiler_flags = [
+        "-fplugin-opt=OrderPlugin:beta",
+        "-fplugin-opt=OrderPlugin:gamma",
+    ],
+)
+
+# =============================================================================
+# haskell_ghci targets with plugins
+# =============================================================================
+
+# GHCi with the real_plugin: when GHCi compiles GhciPluginTest.hs on load,
+# the plugin replaces the "original" string literal with "plugin_ok".
+haskell_ghci(
+    name = "ghci_real_plugin",
+    plugins = [":real_plugin"],
+    deps = ["//tests:base"],
+    ghci_bin_dep = "//tests:ghci_bin",
+)
+
+# GHCi with order_plugin: compilation only succeeds when plugin_opts arrive
+# in the expected order.  Additional opts are passed via compiler_flags.
+haskell_ghci(
+    name = "ghci_order_plugin",
+    plugins = [":order_plugin"],
+    deps = ["//tests:base"],
+    ghci_bin_dep = "//tests:ghci_bin",
     compiler_flags = [
         "-fplugin-opt=OrderPlugin:beta",
         "-fplugin-opt=OrderPlugin:gamma",

@@ -172,6 +172,14 @@ all modules (which violates the per-module intent), we fail early with an
 explanatory message guiding the user to either use global `plugins` or enable
 incremental builds.
 
+### 12. `srcs_plugins` is not supported in `haskell_ghci`
+
+**Decision:** The `srcs_plugins` attribute produces an error in `haskell_ghci`
+if set.
+
+**Reason:** `haskell_ghci` does not compile or load modules separately, so
+the `srcs_plugins` attribute is meaningless there.
+
 ## Test files
 
 - **`buck2-haskell/tests/plugins/`** — Complete test suite:
@@ -183,11 +191,17 @@ incremental builds.
   - `OrderPlugin.hs` — Plugin that verifies `plugin_opts` arrive as `["alpha", "beta", "gamma"]` (flag ordering test)
   - `OrderMain.hs` — Minimal main for order plugin test
   - `Lib.hs`, `Main.hs` — Modules for order plugin library tests
+  - `ghci_src/GhciPluginTest.hs` — Test source for `ghci_real_plugin` (defines `testGreeting`, replaced by plugin to `"plugin_ok"`)
+  - `ghci_src/GhciOrderTest.hs` — Test source for `ghci_order_plugin` (defines `hello`, compiles only if plugin opts arrive in order)
   - `test_expected_failures.sh` — Shell script testing expected-failure scenarios
   - `BUCK` — Test targets covering all combinations in the spec
 
+- **`buck2-haskell/tests/build_tests/rule_configs/`** — GHCi test infrastructure:
+  - `test_ghci.sh` — Shell script testing GHCi targets (non-plugin and plugin) via `buck2 run`
+  - `BUCK` — Contains `sh_test` target `test_ghci`
+
 - **`buck2-haskell/expected_failures/`** — Self-contained expected-failure targets:
-  - `BUCK` — 5 targets that are expected to fail at analysis time
+  - `BUCK` — Targets that are expected to fail at analysis time
   - `NoopPlugin.hs`, `Lib.hs` — Local sources to avoid cross-package visibility issues
 
 ## Test Matrix
@@ -217,6 +231,9 @@ The test suite in `buck2-haskell/tests/plugins/` covers:
 | `haskell_test` | real (tools+opts) | srcs_plugins | static | `ht_srcs_real_plugin_static` |
 | `haskell_test` | real (tools+opts) | srcs_plugins | shared | `ht_srcs_real_plugin_shared` |
 | `haskell_test` | order (flag ordering) | global | static | `ht_order_plugin` |
+| `haskell_ghci` | real (tools+opts) | global | — | `ghci_real_plugin` |
+| `haskell_ghci` | order (flag ordering) | global | — | `ghci_order_plugin` |
+| `haskell_haddock` | real (tools+opts) | — | — | `haddock_plugin` |
 
 Tests marked **real (tools+opts)** use `Plugin.hs` which invokes a tool at
 compile time and replaces string literals. They fail if:
@@ -234,6 +251,4 @@ that `plugin_opts` arrive in the expected order `["alpha", "beta", "gamma"]`.
 | `plugins` + `srcs_plugins` both set | `err_mutual_exclusion` | `"mutually exclusive"` |
 | `ghc_plugin.deps` is not a haskell_library | `err_bad_deps` | `"HaskellLibraryProvider"` |
 | `srcs_plugins` + `incremental = False` | `err_srcs_plugins_non_incremental` | `"Per-module plugins require incremental"` |
-| `haskell_ghci` broken (no GHC binary) | `err_ghci_plugin` | `"GHC binary path"` |
-| `haskell_haddock` broken (artifact collision) | `err_haddock_plugin` | `"already used by another action"` |
 
