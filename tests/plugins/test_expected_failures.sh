@@ -61,11 +61,6 @@ expect_failure \
     "buck2-haskell//expected_failures:err_ghci_plugin" \
     "GHC binary path"
 
-# 5. haskell_haddock is broken (artifact collision)
-expect_failure \
-    "buck2-haskell//expected_failures:err_haddock_plugin" \
-    "already used by another action"
-
 echo
 echo "=== Results: $PASS passed, $FAIL failed ==="
 

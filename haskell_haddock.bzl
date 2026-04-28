@@ -74,14 +74,15 @@ def _haddock_dump_interface(
 
     if paths.basename(expected_html.short_path) != module_html:
         html_output = actions.declare_output("haddock-html", module_html)
+        html_output_arg = cmd_args(html_output.as_output(), parent = 1)
         make_copy = True
     else:
-        html_output = expected_html
+        html_output_arg = cmd_args(outputs[expected_html], parent = 1)
         make_copy = False
 
     actions.run(
         cmd.copy().add(
-            "--odir", cmd_args(html_output.as_output(), parent = 1),
+            "--odir", html_output_arg,
             "--dump-interface", outputs[haddock_info.haddock],
             "--html",
             "--hoogle",

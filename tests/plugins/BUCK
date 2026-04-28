@@ -2,6 +2,7 @@ load(
     "@buck2-haskell//:defs.bzl",
     "ghc_plugin",
     "haskell_binary",
+    "haskell_haddock",
     "haskell_library",
     "haskell_test",
 )
@@ -290,6 +291,15 @@ haskell_test(
         "-fplugin-opt=OrderPlugin:beta",
         "-fplugin-opt=OrderPlugin:gamma",
     ],
+)
+
+# =============================================================================
+# haskell_haddock target with real plugin
+# =============================================================================
+
+haskell_haddock(
+    name = "haddock_plugin",
+    deps = [":lib_real_plugin"],
 )
 
 # =============================================================================

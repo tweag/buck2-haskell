@@ -37,23 +37,18 @@ haskell_library(
 # =============================================================================
 # haskell_haddock targets (documentation generation for haskell_library)
 # =============================================================================
-# NOTE: haddock generation is currently broken in this environment because the
-# haskell_haddock.bzl code uses --one-shot-hi and --one-shot-dep-hi flags that
-# are not available in the available haddock binary. These targets are
-# defined for completeness but cannot produce test results until the toolchain
-# provides a compatible haddock binary.
 
 # Test: haddock documentation for lib_release (release build).
-# haskell_haddock(
-#     name = "haddock_release",
-#     deps = [":lib_release"],
-# )
+haskell_haddock(
+    name = "haddock_release",
+    deps = [":lib_release"],
+)
 
 # Test: haddock documentation for lib_debug (debug build).
-# haskell_haddock(
-#     name = "haddock_debug",
-#     deps = [":lib_debug"],
-# )
+haskell_haddock(
+    name = "haddock_debug",
+    deps = [":lib_debug"],
+)
 
 # =============================================================================
 # haskell_binary targets
