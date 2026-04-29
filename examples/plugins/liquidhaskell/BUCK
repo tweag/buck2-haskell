@@ -1,0 +1,28 @@
+load("@toolchains//nix:nix_build.bzl", "nix_build")
+load(
+    "@buck2-haskell//:defs.bzl",
+    "ghc_plugin",
+    "haskell_test",
+)
+
+# LiquidHaskell is a toolchain library plugin that performs refinement type
+# checking at compile time using an SMT solver (z3).
+ghc_plugin(
+    name = "liquid_plugin",
+    module = "LiquidHaskell",
+    deps = ["//tests:liquidhaskell"],
+    tools = [":z3"],
+)
+
+haskell_test(
+    name = "liquid_example",
+    srcs = ["LiquidMain.hs"],
+    plugins = [":liquid_plugin"],
+    deps = ["//tests:base"],
+)
+
+nix_build(
+    name = "z3",
+    binary = "z3",
+    flake = "@nix//:nix_overlays",
+)

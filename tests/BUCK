@@ -5,7 +5,7 @@ load("@toolchains//ghci.bzl", "ghci")
 # toolchain.
 [haskell_toolchain_library(
     name = lib,
-    visibility = ["buck2-haskell//tests/..."],
+    visibility = ["buck2-haskell//tests/...", "buck2-haskell//examples/..."],
 ) for lib in [
     # keep-sorted start
     "aeson",
@@ -18,6 +18,8 @@ load("@toolchains//ghci.bzl", "ghci")
     "hspec",
     "hspec-expectations",
     "inspection-testing",
+    "liquidhaskell",
+    "liquidhaskell-boot",
     "process",
     # keep-sorted end
 ]]
