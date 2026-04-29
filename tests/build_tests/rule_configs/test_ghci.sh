@@ -5,8 +5,7 @@ set -euo pipefail
 
 # --- Non-plugin GHCi tests ---
 for target in \
-    buck2-haskell//tests/build_tests/rule_configs:ghci_release \
-    buck2-haskell//tests/build_tests/rule_configs:ghci_debug
+    buck2-haskell//tests/build_tests/rule_configs:ghci_lib
 do
     if ! buck2 run --isolation-dir ghci_tests "$target" -- \
            -e ':set -v0' -e 'putStrLn Lib.greeting' | grep -q "Hello from Lib"; then
