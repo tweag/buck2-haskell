@@ -804,7 +804,8 @@ def _build_haskell_lib(
         unit_plugin_flags = None,
         srcs_plugin_flags = {},
         extra_tool_paths = [],
-        srcs_plugin_tool_paths = {}) -> HaskellLibBuildOutput:
+        srcs_plugin_tool_paths = {},
+        plugin_toolchain_deps = []) -> HaskellLibBuildOutput:
     linker_info = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info
 
     # Link the objects into a library
@@ -828,6 +829,7 @@ def _build_haskell_lib(
         srcs_plugin_flags = srcs_plugin_flags,
         extra_tool_paths = extra_tool_paths,
         srcs_plugin_tool_paths = srcs_plugin_tool_paths,
+        plugin_toolchain_deps = plugin_toolchain_deps,
     )
     solibs = {}
     artifact_suffix = get_artifact_suffix(link_style, enable_profiling)
@@ -1158,6 +1160,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 srcs_plugin_flags = pf.srcs,
                 extra_tool_paths = pf.global_tool_paths,
                 srcs_plugin_tool_paths = pf.srcs_tool_paths,
+                plugin_toolchain_deps = pf.plugin_toolchain_deps,
             )
             if not enable_profiling:
                 non_profiling_hlib[link_style] = hlib_build_out
@@ -1551,6 +1554,7 @@ def _haskell_executable(ctx: AnalysisContext) -> HaskellExecutableOutput:
         srcs_plugin_flags = pf.srcs,
         extra_tool_paths = pf.global_tool_paths,
         srcs_plugin_tool_paths = pf.srcs_tool_paths,
+        plugin_toolchain_deps = pf.plugin_toolchain_deps,
     )
 
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]

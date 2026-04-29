@@ -82,14 +82,21 @@ meaningful only in incremental mode.
 ### 7. `GhcPluginInfo` provider design
 
 **Decision:** The `GhcPluginInfo` provider stores `module` (str), `deps`
-(list[Dependency]), `tools` (list[Dependency]), and `plugin_opts` (list[str]).
-The `deps` field uses `providers = [HaskellLibraryProvider]` in the attribute
-definition to enforce type safety at the rule level.
+(list[Dependency]), `toolchain_deps` (list[str]), `tools`
+(list[Dependency]), and `plugin_opts` (list[str]). The `deps` attribute in
+`defs.bzl` accepts any dependency (no `providers` constraint) and the
+implementation in `ghc_plugin_impl` categorises each dep: those providing
+`HaskellLibraryProvider` go into `deps`, those providing
+`HaskellToolchainLibrary` go into `toolchain_deps` (as plain package names),
+and anything else triggers a `fail()`.
 
 **Reason:** Storing raw dependencies rather than pre-computed flags allows the
 consumer to compute flags appropriate for its own link style. This is necessary
 because the same plugin may be used by targets with different link styles
-(static vs shared), and the package DB path varies by link style.
+(static vs shared), and the package DB path varies by link style. The
+`toolchain_deps` field stores only package names because toolchain libraries
+have no link-style-specific artifacts — their package DBs are resolved
+dynamically by the compilation flow.
 
 ### 8. Expected-failure tests in a self-contained package
 
@@ -180,6 +187,35 @@ if set.
 **Reason:** `haskell_ghci` does not compile or load modules separately, so
 the `srcs_plugins` attribute is meaningless there.
 
+### 13. Toolchain library support for `ghc_plugin` deps
+
+**Decision:** `ghc_plugin.deps` accepts both `haskell_library` targets
+(providing `HaskellLibraryProvider`) and `haskell_toolchain_library` targets
+(providing `HaskellToolchainLibrary`). Toolchain library deps are handled
+differently from regular deps throughout the compilation pipeline:
+
+1. **`ghc_plugin_impl`** — categorises deps and stores toolchain dep package
+   names in `GhcPluginInfo.toolchain_deps`.
+2. **`_add_plugin_flags`** — emits `-plugin-package <name>` for each
+   toolchain dep (telling GHC to expose the package as a plugin source).
+   No `-package-db` is emitted here because the toolchain package DB is
+   managed by the compilation flow.
+3. **`compute_plugin_flags`** — collects all `toolchain_deps` from global and
+   per-module plugins into a single `plugin_toolchain_deps` list, returned
+   alongside the existing flag structs.
+
+**Reason:** Toolchain libraries don't have per-link-style artifacts, and their
+package databases are provided by the GHC toolchain rather than being built by Buck2.
+When a plugin depends on a toolchain library, we only need to (a) tell GHC the
+package name with `-plugin-package` so it exposes the package and loads the
+plugin module, and (b) ensure the toolchain package DB that contains the
+package is registered via `-package-db`. Part (a) is done at analysis time in
+`_add_plugin_flags`; part (b) piggybacks on the existing
+`HaskellToolchainPackageDbTSet` machinery that the compilation flow already
+uses for regular toolchain library deps. By adding the plugin's toolchain dep
+names to `toolchain_libs` in `_common_compile_module_args`, we reuse the
+existing package-DB resolution.
+
 ## Test files
 
 - **`buck2-haskell/tests/plugins/`** — Complete test suite:
@@ -191,6 +227,7 @@ the `srcs_plugins` attribute is meaningless there.
   - `OrderPlugin.hs` — Plugin that verifies `plugin_opts` arrive as `["alpha", "beta", "gamma"]` (flag ordering test)
   - `OrderMain.hs` — Minimal main for order plugin test
   - `Lib.hs`, `Main.hs` — Modules for order plugin library tests
+  - `InspectionMain.hs` — Test using `inspection-testing` as a toolchain-library plugin; uses `inspect $ 'myId === 'myId2` to verify GHC equates the two functions at Core level
   - `ghci_src/GhciPluginTest.hs` — Test source for `ghci_real_plugin` (defines `testGreeting`, replaced by plugin to `"plugin_ok"`)
   - `ghci_src/GhciOrderTest.hs` — Test source for `ghci_order_plugin` (defines `hello`, compiles only if plugin opts arrive in order)
   - `test_expected_failures.sh` — Shell script testing expected-failure scenarios
@@ -203,6 +240,10 @@ the `srcs_plugins` attribute is meaningless there.
 - **`buck2-haskell/expected_failures/`** — Self-contained expected-failure targets:
   - `BUCK` — Targets that are expected to fail at analysis time
   - `NoopPlugin.hs`, `Lib.hs` — Local sources to avoid cross-package visibility issues
+
+- **`buck2-haskell/examples/plugins/inspection_testing/`** — Example of a toolchain-library plugin:
+  - `BUCK` — Defines `ghc_plugin` with `haskell_toolchain_library` dep, `haskell_test`, and `sh_test`
+  - `InspectionMain.hs` — Minimal `inspection-testing` usage (equivalent to the test source)
 
 ## Test Matrix
 
@@ -231,6 +272,10 @@ The test suite in `buck2-haskell/tests/plugins/` covers:
 | `haskell_test` | real (tools+opts) | srcs_plugins | static | `ht_srcs_real_plugin_static` |
 | `haskell_test` | real (tools+opts) | srcs_plugins | shared | `ht_srcs_real_plugin_shared` |
 | `haskell_test` | order (flag ordering) | global | static | `ht_order_plugin` |
+| `haskell_test` | inspection-testing (toolchain lib) | global | static | `ht_inspection_static` |
+| `haskell_test` | inspection-testing (toolchain lib) | global | shared | `ht_inspection_shared` |
+| `haskell_test` | inspection-testing (toolchain lib) | srcs_plugins | static | `ht_srcs_inspection_static` |
+| `haskell_test` | inspection-testing (toolchain lib) | srcs_plugins | shared | `ht_srcs_inspection_shared` |
 | `haskell_ghci` | real (tools+opts) | global | — | `ghci_real_plugin` |
 | `haskell_ghci` | order (flag ordering) | global | — | `ghci_order_plugin` |
 | `haskell_haddock` | real (tools+opts) | — | — | `haddock_plugin` |
@@ -244,11 +289,22 @@ compile time and replaces string literals. They fail if:
 Tests marked **order (flag ordering)** use `OrderPlugin.hs` which verifies
 that `plugin_opts` arrive in the expected order `["alpha", "beta", "gamma"]`.
 
+Tests marked **inspection-testing (toolchain lib)** use the `inspection-testing`
+package loaded from a `haskell_toolchain_library` target. The plugin runs at
+compile time to verify that two locally-defined functions have identical GHC
+Core representations (`inspect $ 'myId === 'myId2`). These tests exercise the
+toolchain-library plugin pipeline: `ghc_plugin.deps` contains a toolchain
+library, its package name flows through `GhcPluginInfo.toolchain_deps` →
+`compute_plugin_flags().plugin_toolchain_deps` → `compile()` →
+`_DynamicDoCompileOptions.plugin_toolchain_deps` → `toolchain_libs` →
+`HaskellToolchainPackageDbTSet`, and `-plugin-package inspection-testing` is
+emitted so GHC exposes the package for plugin loading.
+
 ### Expected-failure tests (in `expected_failures/`)
 
 | Error condition | Target name | Expected error substring |
 |---|---|---|
 | `plugins` + `srcs_plugins` both set | `err_mutual_exclusion` | `"mutually exclusive"` |
-| `ghc_plugin.deps` is not a haskell_library | `err_bad_deps` | `"HaskellLibraryProvider"` |
+| `ghc_plugin.deps` is not a haskell_library or toolchain library | `err_bad_deps` | `"HaskellLibraryProvider or HaskellToolchainLibrary"` |
 | `srcs_plugins` + `incremental = False` | `err_srcs_plugins_non_incremental` | `"Per-module plugins require incremental"` |
 

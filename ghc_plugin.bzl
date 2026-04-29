@@ -14,6 +14,10 @@ load(
     "HaskellLibraryProvider",
 )
 load(
+    ":toolchain.bzl",
+    "HaskellToolchainLibrary",
+)
+load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
 )
@@ -22,7 +26,10 @@ load(
 GhcPluginInfo = provider(
     fields = {
         "module": provider_field(str),
+        # Regular haskell_library deps (provide HaskellLibraryProvider).
         "deps": provider_field(list[Dependency]),
+        # Toolchain library dep names (provide HaskellToolchainLibrary).
+        "toolchain_deps": provider_field(list[str]),
         "tools": provider_field(list[Dependency]),
         "plugin_opts": provider_field(list[str]),
     },
@@ -30,12 +37,19 @@ GhcPluginInfo = provider(
 
 def ghc_plugin_impl(ctx: AnalysisContext) -> list[Provider]:
     """Implementation of the ghc_plugin rule."""
-    # Validate that all deps provide HaskellLibraryProvider
+    lib_deps = []
+    toolchain_dep_names = []
     for dep in ctx.attrs.deps:
-        if dep.get(HaskellLibraryProvider) == None:
+        if dep.get(HaskellLibraryProvider) != None:
+            lib_deps.append(dep)
+        elif dep.get(HaskellToolchainLibrary) != None:
+            toolchain_dep_names.append(dep[HaskellToolchainLibrary].name)
+        else:
             fail(
-                "ghc_plugin '{}': dependency '{}' does not provide HaskellLibraryProvider. " +
-                "Plugin deps must be haskell_library targets.".format(
+                "ghc_plugin '{}': dependency '{}' does not provide " +
+                "HaskellLibraryProvider or HaskellToolchainLibrary. " +
+                "Plugin deps must be haskell_library or " +
+                "haskell_toolchain_library targets.".format(
                     ctx.label.name,
                     dep.label,
                 ),
@@ -45,7 +59,8 @@ def ghc_plugin_impl(ctx: AnalysisContext) -> list[Provider]:
         DefaultInfo(),
         GhcPluginInfo(
             module = ctx.attrs.module,
-            deps = ctx.attrs.deps,
+            deps = lib_deps,
+            toolchain_deps = toolchain_dep_names,
             tools = ctx.attrs.tools,
             plugin_opts = ctx.attrs.plugin_opts,
         ),
@@ -90,6 +105,7 @@ def get_plugin_flags(ctx, link_style, plugin_info = None) -> cmd_args:
 
 def _add_plugin_flags(args, info, link_style):
     """Add GHC flags for a single plugin to the given cmd_args."""
+    # Handle regular haskell_library deps.
     for dep in info.deps:
         lib_provider = dep[HaskellLibraryProvider]
         lib_info = lib_provider.lib[link_style]
@@ -110,6 +126,11 @@ def _add_plugin_flags(args, info, link_style):
             shared_lib_info = lib_provider.lib.get(LinkStyle("shared"))
             if shared_lib_info:
                 args.add(cmd_args(hidden = shared_lib_info.libs))
+    # Handle haskell_toolchain_library deps. Their package DBs are registered
+    # by the compilation flow; we only need to tell GHC to use the package as
+    # a plugin.
+    for name in info.toolchain_deps:
+        args.add("-plugin-package", name)
     args.add("-fplugin={}".format(info.module))
     for opt in info.plugin_opts:
         args.add("-fplugin-opt={}:{}".format(info.module, opt))
@@ -123,16 +144,19 @@ def compute_plugin_flags(ctx: AnalysisContext, link_style) -> struct:
         srcs: dict mapping source file to cmd_args for per-module plugins
         global_tool_paths: list[RunInfo] for global plugin tools
         srcs_tool_paths: dict mapping source file to list[RunInfo] for per-module plugin tools
+        plugin_toolchain_deps: list[str] toolchain library names needed by plugins
     """
     unit = get_plugin_flags(ctx, link_style)
     srcs = {}
     global_tool_paths = []
     srcs_tool_paths = {}
+    plugin_toolchain_deps = []
 
     for plugin_dep in getattr(ctx.attrs, "plugins", []):
         info = plugin_dep[GhcPluginInfo]
         for tool in info.tools:
             global_tool_paths.append(tool[RunInfo])
+        plugin_toolchain_deps.extend(info.toolchain_deps)
 
     if getattr(ctx.attrs, "srcs_plugins", None):
         for src, plugin_list in ctx.attrs.srcs_plugins.items():
@@ -143,6 +167,7 @@ def compute_plugin_flags(ctx: AnalysisContext, link_style) -> struct:
                 flags.add(get_plugin_flags(ctx, link_style, plugin_info = plugin_info))
                 for tool in plugin_info.tools:
                     tools.append(tool[RunInfo])
+                plugin_toolchain_deps.extend(plugin_info.toolchain_deps)
             srcs[src] = flags
             if tools:
                 srcs_tool_paths[src] = tools
@@ -152,6 +177,7 @@ def compute_plugin_flags(ctx: AnalysisContext, link_style) -> struct:
         srcs = srcs,
         global_tool_paths = global_tool_paths,
         srcs_tool_paths = srcs_tool_paths,
+        plugin_toolchain_deps = plugin_toolchain_deps,
     )
 
 def get_plugin_tool_paths(plugins: list[Dependency]) -> list[RunInfo]:

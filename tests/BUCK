@@ -17,6 +17,7 @@ load("@toolchains//ghci.bzl", "ghci")
     "ghc",
     "hspec",
     "hspec-expectations",
+    "inspection-testing",
     "process",
     # keep-sorted end
 ]]

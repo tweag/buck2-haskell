@@ -200,6 +200,12 @@ _DynamicDoCompileOptions = record(
     srcs_plugin_flags = field(dict[typing.Any, typing.Any], default = {}),
     # Per-source plugin tool paths (from `srcs_plugins` attr). Source -> list[RunInfo].
     srcs_plugin_tool_paths = field(dict[typing.Any, typing.Any], default = {}),
+    # Toolchain library names required by plugins (from `plugins` attr) that
+    # need to be added to the GHC command line. These are not necessarily the
+    # same as the toolchain libraries required by the unit itself, since it's
+    # possible that plugins require additional libraries that the unit doesn't
+    # directly depend on.
+    plugin_toolchain_deps = field(list[str], default = []),
 )
 
 def _strip_prefix(prefix: str, s: str) -> str:
@@ -1067,7 +1073,7 @@ def _common_compile_module_args(
             for dep in arg.deps
             if HaskellToolchainLibrary in dep
         ]
-        toolchain_libs = direct_toolchain_libs + libs.reduce("packages")
+        toolchain_libs = direct_toolchain_libs + libs.reduce("packages") + arg.plugin_toolchain_deps
 
 
         toolchain_package_db_tset = actions.tset(
@@ -1902,7 +1908,8 @@ def compile(
         unit_plugin_flags = None,
         srcs_plugin_flags = {},
         extra_tool_paths = [],
-        srcs_plugin_tool_paths = {}) -> CompileResultInfo:
+        srcs_plugin_tool_paths = {},
+        plugin_toolchain_deps = []) -> CompileResultInfo:
     artifact_suffix = get_artifact_suffix(link_style, enable_profiling)
 
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
@@ -2013,6 +2020,7 @@ def compile(
             unit_plugin_flags = unit_plugin_flags,
             srcs_plugin_flags = srcs_plugin_flags,
             srcs_plugin_tool_paths = srcs_plugin_tool_paths,
+            plugin_toolchain_deps = plugin_toolchain_deps,
         ),
     ))
 

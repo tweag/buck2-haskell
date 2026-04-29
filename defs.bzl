@@ -608,8 +608,8 @@ ghc_plugin = rule(
         ```
     """,
     attrs = {
-        "deps": attrs.list(attrs.dep(providers = [HaskellLibraryProvider]), default = [], doc = """
-            Haskell library dependencies that provide the plugin module.
+        "deps": attrs.list(attrs.dep(), default = [], doc = """
+            Haskell library or toolchain library dependencies that provide the plugin module.
         """),
         "module": attrs.string(doc = """
             The Haskell module name that provides the plugin (e.g. "MyPlugin").

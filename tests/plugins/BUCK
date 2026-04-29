@@ -339,3 +339,64 @@ sh_test(
     name = "test_expected_failures",
     test = "test_expected_failures.sh",
 )
+
+# =============================================================================
+# haskell_test with inspection-testing (toolchain library plugin)
+# =============================================================================
+
+ghc_plugin(
+    name = "inspection_plugin",
+    module = "Test.Inspection.Plugin",
+    deps = ["//tests:inspection-testing"],
+    visibility = ["//tests/..."],
+)
+
+haskell_test(
+    name = "ht_inspection_static",
+    srcs = ["InspectionMain.hs"],
+    link_style = "static",
+    plugins = [":inspection_plugin"],
+    deps = [
+        "//tests:base",
+        "//tests:inspection-testing",
+    ],
+)
+
+haskell_test(
+    name = "ht_inspection_shared",
+    srcs = ["InspectionMain.hs"],
+    link_style = "shared",
+    plugins = [":inspection_plugin"],
+    deps = [
+        "//tests:base",
+        "//tests:inspection-testing",
+    ],
+)
+
+# --- srcs_plugins variants (per-module) ---
+
+haskell_test(
+    name = "ht_srcs_inspection_static",
+    srcs = ["InspectionMain.hs"],
+    link_style = "static",
+    srcs_plugins = {
+        "InspectionMain.hs": [":inspection_plugin"],
+    },
+    deps = [
+        "//tests:base",
+        "//tests:inspection-testing",
+    ],
+)
+
+haskell_test(
+    name = "ht_srcs_inspection_shared",
+    srcs = ["InspectionMain.hs"],
+    link_style = "shared",
+    srcs_plugins = {
+        "InspectionMain.hs": [":inspection_plugin"],
+    },
+    deps = [
+        "//tests:base",
+        "//tests:inspection-testing",
+    ],
+)
