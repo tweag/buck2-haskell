@@ -14,6 +14,10 @@ load(
     "HaskellLibraryProvider",
 )
 load(
+    ":link_info.bzl",
+    "HaskellLinkInfo",
+)
+load(
     ":toolchain.bzl",
     "HaskellToolchainLibrary",
 )
@@ -109,7 +113,6 @@ def _add_plugin_flags(args, info, link_style):
     for dep in info.deps:
         lib_provider = dep[HaskellLibraryProvider]
         lib_info = lib_provider.lib[link_style]
-        args.add("-package-db", lib_info.db)
         args.add("-plugin-package", lib_info.id)
         # GHC needs to load the plugin module's .hi files at startup when
         # -fplugin is used. Declare them as hidden inputs so Buck2
@@ -118,14 +121,29 @@ def _add_plugin_flags(args, info, link_style):
             args.add(cmd_args(hidden = ifaces))
         for profiling_enabled, objs in lib_info.objects.items():
             args.add(cmd_args(hidden = objs))
-        args.add(cmd_args(hidden = lib_info.libs))
-        # GHC loads plugins dynamically regardless of the consumer's link
-        # style. The package DB's library-dirs includes the shared lib
-        # directory even for static builds, so the .so must be materialized.
-        if link_style != LinkStyle("shared"):
-            shared_lib_info = lib_provider.lib.get(LinkStyle("shared"))
-            if shared_lib_info:
-                args.add(cmd_args(hidden = shared_lib_info.libs))
+        # Register package DBs and libs for this dep AND all its transitive
+        # deps. GHC needs all transitive deps available to satisfy the plugin
+        # package's dependency chain.
+        if HaskellLinkInfo in dep:
+            link_info = dep[HaskellLinkInfo]
+            tset = link_info.info[link_style]
+            args.add(cmd_args(tset.project_as_args("package_db"), prepend = "-package-db"))
+            # GHC loads plugins dynamically regardless of the consumer's link
+            # style. Ensure shared libs are materialized for all transitive
+            # deps.
+            if link_style != LinkStyle("shared"):
+                shared_tset = link_info.info.get(LinkStyle("shared"))
+                if shared_tset:
+                    args.add(cmd_args(hidden = shared_tset.project_as_args("libs")))
+            else:
+                args.add(cmd_args(hidden = tset.project_as_args("libs")))
+        else:
+            args.add("-package-db", lib_info.db)
+            args.add(cmd_args(hidden = lib_info.libs))
+            if link_style != LinkStyle("shared"):
+                shared_lib_info = lib_provider.lib.get(LinkStyle("shared"))
+                if shared_lib_info:
+                    args.add(cmd_args(hidden = shared_lib_info.libs))
     # Handle haskell_toolchain_library deps. Their package DBs are registered
     # by the compilation flow; we only need to tell GHC to use the package as
     # a plugin.

@@ -21,6 +21,16 @@ haskell_library(
     srcs = ["Plugin.hs"],
     deps = [
         "//tests:base",
+        ":plugin_lib_backend",
+    ],
+    visibility = ["//tests/..."],
+)
+
+haskell_library(
+    name = "plugin_lib_backend",
+    srcs = ["PluginLibBackend.hs"],
+    deps = [
+        "//tests:base",
         "//tests:bytestring",
         "//tests:ghc",
         "//tests:process",
