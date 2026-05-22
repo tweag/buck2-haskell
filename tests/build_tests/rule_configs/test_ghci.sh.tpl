@@ -3,6 +3,8 @@
 # Lib.greeting is accessible, and that GHC plugins work in GHCi.
 set -euo pipefail
 
+SCRIPTDIR=$(dirname "$0")
+
 # --- Non-plugin GHCi tests ---
 for target in \
     buck2-haskell//tests/build_tests/rule_configs:ghci_lib
@@ -20,7 +22,7 @@ done
 # Loading GhciPluginTest.hs in GHCi should produce the replaced value.
 target="buck2-haskell//tests/plugins:ghci_real_plugin"
 if ! buck2 run --isolation-dir ghci_tests "$target" -- \
-       -e ':set -v0' -e ':load buck2-haskell/tests/plugins/ghci_src/GhciPluginTest.hs' -e 'putStrLn testGreeting' \
+      -e ':set -v0' -e ':load '$SCRIPTDIR'/%GhciPluginTest.hs%' -e 'putStrLn testGreeting' \
        | grep -q "plugin_ok"; then
     echo "FAIL $target (expected 'plugin_ok')"
     exit 1
@@ -31,7 +33,7 @@ echo "PASS $target"
 # If GHCi loads the source successfully, the plugin received the right opts.
 target="buck2-haskell//tests/plugins:ghci_order_plugin"
 if ! buck2 run --isolation-dir ghci_tests "$target" -- \
-       -e ':set -v0' -e ':load buck2-haskell/tests/plugins/ghci_src/GhciOrderTest.hs' -e 'putStrLn hello' \
+       -e ':set -v0' -e ':load '$SCRIPTDIR'/%GhciOrderTest.hs%' -e 'putStrLn hello' \
        | grep -q "order plugin ok"; then
     echo "FAIL $target (expected 'order plugin ok')"
     exit 1

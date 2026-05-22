@@ -468,7 +468,6 @@ MetadataParams = record(
     allow_cache_upload = field(bool),
     label = field(Label | None),
     incremental = field(bool),
-    cell_root = field(CellRoot),
 )
 
 def _validate_srcs_batch(
@@ -557,12 +556,9 @@ def _dynamic_target_metadata_impl(
 
     md_args.add("--ghc", haskell_toolchain.compiler)
 
-    # ghc args should be relative to the cell root, since this will be
-    # the working directory of ghc
-    md_args.add(cmd_args(ghc_args, format = "--ghc-arg={}", relative_to = arg.cell_root))
+    md_args.add(cmd_args(ghc_args, format = "--ghc-arg={}"))
 
-    # sources args also need to be relative to the cell root
-    md_args.add(cmd_args(arg.sources, format = "--source={}", relative_to = arg.cell_root))
+    md_args.add(cmd_args(arg.sources, format = "--source={}"))
 
     md_args.add("--source-prefix", arg.strip_prefix)
 
@@ -633,8 +629,7 @@ def _dynamic_target_metadata_impl(
     # to build metadata.
     md_args.add(cmd_args(hidden = validate_outputs))
 
-    # pass the cell root directory as the working directory for ghc
-    md_args_outer = cmd_args(arg.md_gen, "--cwd", arg.cell_root)
+    md_args_outer = cmd_args(arg.md_gen)
     md_args_outer.add(at_argfile(
         actions = actions,
         name = "dynamic_target_metadata_args",
@@ -731,10 +726,8 @@ def target_metadata(
             md_gen = md_gen,
             validate_srcs = validate_srcs,
             sources = sources,
-            strip_prefix = _strip_prefix(str(ctx.label.cell_root), str(ctx.label.path)),
+            strip_prefix = str(ctx.label.path),
             suffix = link_style.value + ("+prof" if enable_profiling else ""),
-            # ghc should be run with the cell root as working directory
-            cell_root = ctx.label.cell_root,
             worker = worker,
             allow_worker = allow_worker,
             allow_cache_upload = ctx.attrs.allow_cache_upload,

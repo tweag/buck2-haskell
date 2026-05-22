@@ -141,9 +141,21 @@ haskell_ghci(
     ],
 )
 
+genrule(
+    name = "test_ghci.sh",
+    srcs = [
+        "test_ghci.sh.tpl",
+    ],
+    out = "test_ghci.sh",
+    cmd = """
+        sed -e 's|%GhciPluginTest.hs%|$(location //tests/plugins:GhciPluginTest.hs)|g' -e 's|%GhciOrderTest.hs%|$(location //tests/plugins:GhciOrderTest.hs)|g' test_ghci.sh.tpl >> $OUT
+        chmod +x $OUT
+""",
+    executable = True,
+)
+
 # sh_test runs the ghci target via buck2 run and verifies Lib.greeting.
 sh_test(
     name = "test_ghci",
-    test = "test_ghci.sh",
-    labels = ["buck2_run_from_project_root"],
+    test = ":test_ghci.sh",
 )

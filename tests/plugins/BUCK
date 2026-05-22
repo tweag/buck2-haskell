@@ -8,6 +8,22 @@ load(
     "haskell_test",
 )
 
+# exported files
+export_file(
+    name = "GhciOrderTest.hs",
+    src = "ghci_src/GhciOrderTest.hs",
+    out = "ghci_src/GhciOrderTest.hs",
+    visibility = ["//tests/..."],
+)
+
+export_file(
+    name = "GhciPluginTest.hs",
+    src = "ghci_src/GhciPluginTest.hs",
+    out = "ghci_src/GhciPluginTest.hs",
+    visibility = ["//tests/..."],
+)
+
+
 # =============================================================================
 # Plugin library and ghc_plugin rules
 # =============================================================================
