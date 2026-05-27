@@ -528,6 +528,7 @@ haskell_library = rule(
             "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             "use_same_package_name": attrs.bool(default = False),
             "allow_worker": attrs.bool(default = True),
+            "archive_allow_cache_upload": attrs.bool(default = True),
 
             # extra needed (from rules_impl.bzl)
             "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),

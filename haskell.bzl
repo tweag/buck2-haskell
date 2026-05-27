@@ -64,6 +64,7 @@ load(
 )
 load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load("@prelude//tests:re_utils.bzl", "get_re_executors_from_props")
+load("@prelude//tests:remote_test_execution_toolchain.bzl", "RemoteTestExecutionToolchainInfo")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:set.bzl", "set")
@@ -2170,6 +2171,39 @@ def haskell_link_group_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     return results
 
+def _make_test_executor_with_cache_uploads(ctx: AnalysisContext) -> CommandExecutorConfig:
+    """Build a CommandExecutorConfig with allow_cache_uploads=True.
+
+    Uses the RE toolchain's default profile if available, otherwise falls back to
+    sensible defaults (local+remote hybrid with remote cache enabled). Always returns
+    a valid config to ensure run_from_project_root=True for Haskell tests (needed for
+    relative RPATH resolution: the binary's RPATH is relative to the project root).
+    """
+    re_toolchain = getattr(ctx.attrs, "_remote_test_execution_toolchain", None)
+    profile = None
+    if re_toolchain != None:
+        # default_profile is already the resolved profile dict (see remote_test_execution_toolchain.bzl)
+        profile = re_toolchain[RemoteTestExecutionToolchainInfo].default_profile
+    if profile != None:
+        return CommandExecutorConfig(
+            local_enabled = profile.get("local_enabled", False),
+            remote_enabled = True,
+            remote_execution_properties = profile.get("capabilities", {}),
+            remote_execution_use_case = profile.get("use_case", "buck2-default"),
+            remote_cache_enabled = profile.get("remote_cache_enabled", None),
+            allow_cache_uploads = True,
+        )
+    else:
+        # No profile from toolchain - use defaults for RE caching setup
+        return CommandExecutorConfig(
+            local_enabled = True,
+            remote_enabled = True,
+            remote_execution_properties = {},
+            remote_execution_use_case = "buck2-default",
+            remote_cache_enabled = True,
+            allow_cache_uploads = True,
+        )
+
 def haskell_test_impl(ctx: AnalysisContext) -> list[Provider]:
     exe = _haskell_executable(ctx)
 
@@ -2185,6 +2219,12 @@ def haskell_test_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Setup RE executors based on the `remote_execution` param.
     re_executor, executor_overrides = get_re_executors_from_props(ctx)
+
+    # Always create an executor with allow_cache_uploads=True so that locally-run
+    # test results are uploaded to the remote action cache. This also ensures
+    # run_from_project_root=True, which is required for correct relative RPATH
+    # resolution (the binary's RPATH is project-root-relative).
+    re_executor = _make_test_executor_with_cache_uploads(ctx)
 
     run_from_project_root = "buck2_run_from_project_root" in (ctx.attrs.labels or []) or re_executor != None
 

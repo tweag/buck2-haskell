@@ -238,26 +238,31 @@ haskell_binary(
 sh_test(
     name = "test_bin_real_plugin_static",
     test = ":bin_real_plugin_static",
+    labels = ["buck2_run_from_project_root"],
 )
 
 sh_test(
     name = "test_bin_real_plugin_shared",
     test = ":bin_real_plugin_shared",
+    labels = ["buck2_run_from_project_root"],
 )
 
 sh_test(
     name = "test_bin_srcs_real_plugin_static",
     test = ":bin_srcs_real_plugin_static",
+    labels = ["buck2_run_from_project_root"],
 )
 
 sh_test(
     name = "test_bin_srcs_real_plugin_shared",
     test = ":bin_srcs_real_plugin_shared",
+    labels = ["buck2_run_from_project_root"],
 )
 
 sh_test(
     name = "test_bin_order_plugin",
     test = ":bin_order_plugin",
+    labels = ["buck2_run_from_project_root"],
 )
 
 # =============================================================================
@@ -364,6 +369,7 @@ haskell_haddock(
 sh_test(
     name = "test_expected_failures",
     test = "test_expected_failures.sh",
+    labels = ["buck2_run_from_project_root"],
 )
 
 # =============================================================================

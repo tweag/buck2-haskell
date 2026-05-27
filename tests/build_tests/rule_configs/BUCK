@@ -84,21 +84,25 @@ haskell_binary(
 sh_test(
     name = "test_bin_static",
     test = ":bin_static",
+    labels = ["buck2_run_from_project_root"],
 )
 
 sh_test(
     name = "test_bin_shared",
     test = ":bin_shared",
+    labels = ["buck2_run_from_project_root"],
 )
 
 sh_test(
     name = "test_bin_non_standard_shared",
     test = ":bin_non_standard_shared",
+    labels = ["buck2_run_from_project_root"],
 )
 
 sh_test(
     name = "test_bin_non_standard_static",
     test = ":bin_non_standard_static",
+    labels = ["buck2_run_from_project_root"],
 )
 
 # =============================================================================
@@ -152,10 +156,16 @@ genrule(
         chmod +x $OUT
 """,
     executable = True,
+    labels = ["large_copy"],
 )
 
 # sh_test runs the ghci target via buck2 run and verifies Lib.greeting.
 sh_test(
     name = "test_ghci",
     test = ":test_ghci.sh",
+    deps = [
+        "//tests/plugins:GhciPluginTest.hs",
+        "//tests/plugins:GhciOrderTest.hs",
+    ],
+    labels = ["buck2_run_from_project_root"],
 )

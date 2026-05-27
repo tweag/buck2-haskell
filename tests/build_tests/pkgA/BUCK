@@ -24,4 +24,5 @@ haskell_binary(
 sh_test(
     name = "test_app",
     test = ":app",
+    labels = ["buck2_run_from_project_root"],
 )
