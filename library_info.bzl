@@ -88,6 +88,12 @@ def _project_as_deps_package_db(lib: HaskellLibraryInfo) -> cmd_args:
 def _project_as_libs(lib: HaskellLibraryInfo) -> cmd_args:
     return cmd_args(lib.libs)
 
+def _project_as_interfaces(lib: HaskellLibraryInfo) -> cmd_args:
+    args = cmd_args()
+    for _profiling, ifaces in lib.interfaces.items():
+        args.add(ifaces)
+    return args
+
 def _get_package_deps(children: list[list[str]], lib: HaskellLibraryInfo | None) -> list[str]:
     flatted = flatten(children)
     if lib:
@@ -116,6 +122,7 @@ HaskellLibraryInfoTSet = transitive_set(
         "empty_package_db": _project_as_empty_package_db,
         "deps_package_db": _project_as_deps_package_db,
         "libs": _project_as_libs,
+        "interfaces": _project_as_interfaces,
     },
     reductions = {
         "packages": _get_package_deps,

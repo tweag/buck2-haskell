@@ -129,6 +129,9 @@ def _add_plugin_flags(args, info, link_style):
             tset = link_info.info[link_style]
             args.add(cmd_args(tset.project_as_args("package_db"), prepend = "-package-db"))
             args.add(cmd_args(hidden = tset.project_as_args("libs")))
+            # GHC needs transitive interface files when loading the plugin
+            # module (e.g. if the plugin re-exports from a dependency).
+            args.add(cmd_args(hidden = tset.project_as_args("interfaces")))
             # GHC loads plugins dynamically regardless of the consumer's link
             # style. Ensure shared libs are materialized for all transitive
             # deps.
