@@ -166,4 +166,11 @@ sh_test(
     name = "test_ghci",
     test = ":test_ghci.sh",
     labels = ["buck2_run_from_project_root"],
+    # These sources are loaded by path inside GHCi during the test.
+    # They must be listed as deps so they are materialized at test time
+    # (deferred materialization won't materialize them otherwise).
+    deps = [
+        "//tests/plugins:GhciPluginTest.hs",
+        "//tests/plugins:GhciOrderTest.hs",
+    ],
 )
