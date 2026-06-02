@@ -931,7 +931,7 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
 
     if ctx.attrs.srcs:
         validate_plugins_attrs(ctx)
-        worker = ctx.attrs._worker[WorkerInfo] if ctx.attrs._worker else None
+        worker = ctx.attrs._worker[WorkerInfo]
         compile_link_style = LinkStyle("shared")
 
         # Mirrors haskell_library_impl's plugin-flag plumbing so that the
