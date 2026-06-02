@@ -1092,7 +1092,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx.attrs.use_same_package_name,
     )
 
-    worker = ctx.attrs._worker[WorkerInfo] if ctx.attrs._worker else None
+    worker = ctx.attrs._worker[WorkerInfo]
 
     # Validate and compute GHC plugin flags.
     validate_plugins_attrs(ctx)
@@ -1549,7 +1549,7 @@ def _haskell_executable(ctx: AnalysisContext) -> HaskellExecutableOutput:
     if enable_profiling and link_style == LinkStyle("shared"):
         link_style = LinkStyle("static")
 
-    worker = ctx.attrs._worker[WorkerInfo] if ctx.attrs._worker else None
+    worker = ctx.attrs._worker[WorkerInfo]
 
     main = ctx.attrs.main
     src_main = ctx.attrs.src_main
