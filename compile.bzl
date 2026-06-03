@@ -611,7 +611,7 @@ def _dynamic_target_metadata_impl(
         bp_args = cmd_args()
         bp_args.add("-M")
         bp_args.add("--ghc-dir", haskell_toolchain.ghc_dir)
-        add_worker_args(haskell_toolchain, bp_args, unit.name)
+        add_worker_args(haskell_toolchain, bp_args, unit.artifact_suffix)
 
         bp_args.add(buck2_args)
         # Specifying this activates the new build plan logic
@@ -880,8 +880,13 @@ CommonCompileModuleArgs = record(
 def add_worker_args(
         haskell_toolchain: HaskellToolchainInfo,
         command: cmd_args,
-        pkgname: str) -> None:
-    command.add("--worker-target-id", "singleton")
+        identifier: str) -> None:
+    # The GHC worker socket path is /tmp/ghc-persistent-worker/<build_id>_<target_id>/server,
+    # which must stay under the Unix socket path limit (108 bytes). With a 36-char UUID build_id,
+    # the target_id must be ≤ 35 chars. We hash the full identifier to keep it short while
+    # ensuring each (package, link_style) pair gets its own isolated GHC worker process.
+    target_id = str(hash(identifier) & 0x7fffffff)
+    command.add("--worker-target-id", target_id)
 
 def make_package_env(
         *,
@@ -929,11 +934,12 @@ def _common_compile_wrapper_args(
         ghc_wrapper: RunInfo,
         haskell_toolchain: HaskellToolchainInfo,
         pkgname: str,
-        is_worker_execute: bool) -> cmd_args:
+        is_worker_execute: bool,
+        artifact_suffix: str = "") -> cmd_args:
     args = cmd_args()
 
     if is_worker_execute:
-        add_worker_args(haskell_toolchain, args, pkgname)
+        add_worker_args(haskell_toolchain, args, artifact_suffix)
     else:
         args.add(ghc_wrapper)
         args.add("--ghc", haskell_toolchain.compiler)
@@ -1066,7 +1072,7 @@ def _common_compile_module_args(
     oneshot_wrapper_args = unit_buck2_args(actions, unit_params)
 
     # These arguments are not intended for GHC, but for either `ghc_wrapper` or the worker.
-    command = _common_compile_wrapper_args(arg.ghc_wrapper, arg.haskell_toolchain, arg.pkgname, is_worker_execute)
+    command = _common_compile_wrapper_args(arg.ghc_wrapper, arg.haskell_toolchain, arg.pkgname, is_worker_execute, get_artifact_suffix(arg.link_style, arg.enable_profiling))
 
     if not is_worker_execute:
         # Some rules pass in RTS (e.g. `+RTS ... -RTS`) options for GHC, which can't
