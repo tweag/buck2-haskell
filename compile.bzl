@@ -599,7 +599,7 @@ def _dynamic_target_metadata_impl(
         bp_args = cmd_args()
         bp_args.add("-M")
         bp_args.add("--ghc-dir", haskell_toolchain.ghc_dir)
-        add_worker_args(haskell_toolchain, bp_args, unit.name + "-" + unit.artifact_suffix)
+        add_worker_args(haskell_toolchain, bp_args, unit.artifact_suffix)
 
         bp_args.add(buck2_args)
         # Specifying this activates the new build plan logic
@@ -926,7 +926,7 @@ def _common_compile_wrapper_args(
     args = cmd_args()
 
     if use_worker:
-        add_worker_args(haskell_toolchain, args, pkgname + "-" + artifact_suffix)
+        add_worker_args(haskell_toolchain, args, artifact_suffix)
     else:
         args.add(ghc_wrapper)
         args.add("--ghc", haskell_toolchain.compiler)
