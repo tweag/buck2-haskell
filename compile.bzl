@@ -706,7 +706,21 @@ def target_metadata(
     # stored in the HUG include plugin info for the compile step. In non-worker
     # mode the metadata step runs `ghc -M` which must NOT receive -fplugin flags
     # (GHC would attempt to load the plugin during makedepend, which fails).
-    worker_plugin_flags = compute_plugin_flags(ctx, link_style).unit if is_worker_execute else None
+    #
+    # For per-module plugins (srcs_plugins), the unit-level plugin_flags are
+    # empty. The buildplan step must still receive all plugin flags (unit +
+    # every srcs_plugins entry) so that computeProviders populates
+    # pluginVisibilities[unit] in the UnitIndex for every plugin referenced by
+    # any module in this target. Without this, queryFindOrigin(plugins=True)
+    # would fail to find the plugin package during compile steps.
+    if is_worker_execute:
+        _pf = compute_plugin_flags(ctx, link_style)
+        _all_plugin_flags = cmd_args(_pf.unit)
+        for _, _src_flags in _pf.srcs.items():
+            _all_plugin_flags.add(_src_flags)
+        worker_plugin_flags = _all_plugin_flags
+    else:
+        worker_plugin_flags = None
 
     ctx.actions.dynamic_output_new(_dynamic_target_metadata(
         pkg_deps = haskell_toolchain.packages.dynamic if haskell_toolchain.packages else None,
