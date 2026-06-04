@@ -77,7 +77,10 @@ def _scripts_arg():
             providers = [RunInfo],
             default = "@buck2-haskell//tools:ghc_pkg_registerer",
         ),
-        "_worker": attrs.exec_dep(providers = [WorkerInfo], default = "toolchains//worker:persistent_worker"),
+        "_worker": attrs.option(
+            attrs.exec_dep(providers = [WorkerInfo]),
+            default = None,
+        ),
     }
 
 def _validate_srcs_arg():
@@ -439,7 +442,10 @@ haskell_ghci_global = rule(
                 providers = [RunInfo],
                 default = "@buck2-haskell//tools:ghc_pkg_registerer",
             ),
-            "_worker": attrs.exec_dep(providers = [WorkerInfo], default = "toolchains//worker:persistent_worker"),
+            "_worker": attrs.option(
+                attrs.exec_dep(providers = [WorkerInfo]),
+                default = None,
+            ),
             "_cxx_toolchain": toolchains_common.cxx(),
             "_haskell_toolchain": haskell_toolchain(),
         }
