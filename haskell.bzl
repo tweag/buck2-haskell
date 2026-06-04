@@ -1092,12 +1092,17 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx.attrs.use_same_package_name,
     )
 
-    worker = ctx.attrs._worker[WorkerInfo]
+    haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
+
+    # Use rule-level _worker if set, otherwise use toolchain's worker
+    worker = None
+    if ctx.attrs._worker:
+        worker = ctx.attrs._worker[WorkerInfo]
+    elif haskell_toolchain.worker:
+        worker = haskell_toolchain.worker[WorkerInfo]
 
     # Validate and compute GHC plugin flags.
     validate_plugins_attrs(ctx)
-
-    haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
 
     # The non-profiling library is also needed to build the package with
     # profiling enabled, so we need to keep track of it for each link style.
@@ -1549,7 +1554,14 @@ def _haskell_executable(ctx: AnalysisContext) -> HaskellExecutableOutput:
     if enable_profiling and link_style == LinkStyle("shared"):
         link_style = LinkStyle("static")
 
-    worker = ctx.attrs._worker[WorkerInfo]
+    haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
+
+    # Use rule-level _worker if set, otherwise use toolchain's worker
+    worker = None
+    if ctx.attrs._worker:
+        worker = ctx.attrs._worker[WorkerInfo]
+    elif haskell_toolchain.worker:
+        worker = haskell_toolchain.worker[WorkerInfo]
 
     main = ctx.attrs.main
     src_main = ctx.attrs.src_main
@@ -1595,8 +1607,6 @@ def _haskell_executable(ctx: AnalysisContext) -> HaskellExecutableOutput:
         srcs_plugin_tool_paths = plugin_flags.srcs_tool_paths,
         plugin_toolchain_deps = plugin_flags.plugin_toolchain_deps,
     )
-
-    haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
 
     toolchain_libs = [dep[HaskellToolchainLibrary].name for dep in attr_deps(ctx) if HaskellToolchainLibrary in dep]
 
