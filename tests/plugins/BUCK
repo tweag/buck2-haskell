@@ -314,7 +314,11 @@ haskell_test(
 
 haskell_test(
     name = "ht_srcs_real_plugin_shared",
-    srcs = ["PluginMain.hs"],
+    src_main = "PluginMain.hs",
+    srcs = [
+        "PluginMain.hs",
+        "PluginMain2.hs",
+    ],
     link_style = "shared",
     srcs_plugins = {
         "PluginMain.hs": [":real_plugin"],
