@@ -155,19 +155,26 @@ def _add_plugin_flags(args, info, link_style):
     for opt in info.plugin_opts:
         args.add("-fplugin-opt={}:{}".format(info.module, opt))
 
-def compute_plugin_flags(ctx: AnalysisContext, link_style) -> struct:
+PluginParams = record(
+    # cmd_args for global plugins (from ctx.attrs.plugins), or None
+    unit = field(cmd_args),
+    # dict mapping source file to cmd_args for per-module plugins
+    srcs = field(dict[typing.Any, cmd_args]),
+    # list[RunInfo] for global plugin tools
+    global_tool_paths = field(list[RunInfo]),
+    # dict mapping source file to list[RunInfo] for per-module plugin tools
+    srcs_tool_paths = field(dict[typing.Any, list[RunInfo]]),
+    # list[str] toolchain library names needed by plugins
+    plugin_toolchain_deps = field(list[str]),
+)
+
+def compute_plugin_flags(ctx: AnalysisContext, link_style) -> PluginParams:
     """
     Compute both unit-level and per-source plugin flags for a given link style.
-
-    Returns a struct with:
-        unit: cmd_args for global plugins (from ctx.attrs.plugins), or None
-        srcs: dict mapping source file to cmd_args for per-module plugins
-        global_tool_paths: list[RunInfo] for global plugin tools
-        srcs_tool_paths: dict mapping source file to list[RunInfo] for per-module plugin tools
-        plugin_toolchain_deps: list[str] toolchain library names needed by plugins
     """
     unit = get_plugin_flags(ctx, link_style)
     srcs = {}
+    srcs_plugin_modules = {}
     global_tool_paths = []
     srcs_tool_paths = {}
     plugin_toolchain_deps = []
@@ -192,7 +199,7 @@ def compute_plugin_flags(ctx: AnalysisContext, link_style) -> struct:
             if tools:
                 srcs_tool_paths[src] = tools
 
-    return struct(
+    return PluginParams(
         unit = unit,
         srcs = srcs,
         global_tool_paths = global_tool_paths,
