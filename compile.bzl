@@ -56,6 +56,7 @@ load(
 )
 load(
     ":ghc_plugin.bzl",
+    "PluginParams",
     "compute_plugin_flags",
 )
 load(
@@ -223,20 +224,7 @@ _DynamicDoCompileOptions = record(
     is_worker_execute = bool,
     allow_cache_upload = bool,
     link_group_libs = list[HaskellLinkGroupInfo],
-    # GHC plugin flags applied to all modules in the unit (from `plugins` attr).
-    # These flags will contain `-package-db`, `-plugin-package`,
-    # `-fplugin-opt=...`, etc
-    unit_plugin_flags = field(cmd_args | None, default = None),
-    # Per-source plugin flags (from `srcs_plugins` attr). Source -> cmd_args.
-    srcs_plugin_flags = field(dict[typing.Any, cmd_args], default = {}),
-    # Per-source plugin tool paths (from `srcs_plugins` attr). Source -> list[RunInfo].
-    srcs_plugin_tool_paths = field(dict[typing.Any, typing.Any], default = {}),
-    # Toolchain library names required by plugins (from `plugins` attr) that
-    # need to be added to the GHC command line. These are not necessarily the
-    # same as the toolchain libraries required by the unit itself, since it's
-    # possible that plugins require additional libraries that the unit doesn't
-    # directly depend on.
-    plugin_toolchain_deps = field(list[str], default = []),
+    plugin_params = PluginParams,
 )
 
 def _strip_prefix(prefix: str, s: str) -> str:
@@ -1113,7 +1101,7 @@ def _common_compile_module_args(
         haskell_toolchain = arg.haskell_toolchain,
         compiler_flags = arg.compiler_flags,
         is_worker_execute = is_worker_execute,
-        plugin_flags = arg.unit_plugin_flags,
+        plugin_flags = arg.plugin_params.unit,
     )
 
     non_haskell_sources = [
@@ -1174,7 +1162,7 @@ def _common_compile_module_args(
             [dep[HaskellToolchainLibrary] for dep in arg.deps if HaskellToolchainLibrary in dep] +
             transitive_toolchain_libs,
         )
-        toolchain_libs = direct_toolchain_libs + [p.name for p in transitive_toolchain_libs] + arg.plugin_toolchain_deps
+        toolchain_libs = direct_toolchain_libs + [p.name for p in transitive_toolchain_libs] + arg.plugin_params.plugin_toolchain_deps
 
         toolchain_package_db_tset = actions.tset(
             HaskellToolchainPackageDbTSet,
@@ -1656,8 +1644,8 @@ def _compile_incr(
             allow_worker = arg.allow_worker,
             allow_cache_upload = arg.allow_cache_upload,
             module_package_deps = ModulePackageDeps(packages = package_deps.get(module_name, {})),
-            module_plugin_flags = arg.srcs_plugin_flags.get(module.source),
-            module_plugin_tool_paths = arg.srcs_plugin_tool_paths.get(module.source),
+            module_plugin_flags = arg.plugin_params.srcs.get(module.source),
+            module_plugin_tool_paths = arg.plugin_params.srcs_tool_paths.get(module.source),
         )
 
 def compile_args_for_non_incr(
@@ -1867,7 +1855,7 @@ def _compile_non_incr(
             target_deps_args = common_args.target_deps_args,
             link_group_libs = arg.link_group_libs,
             pkgname = arg.pkgname,
-            plugin_flags = arg.unit_plugin_flags,
+            plugin_flags = arg.plugin_params.unit,
         ),
     )
 
@@ -2027,15 +2015,11 @@ def compile(
         enable_haddock: bool,
         md_file: Artifact,
         pkgname: str,
-        worker: WorkerInfo | None = None,
-        incremental: bool = False,
-        is_haskell_binary: bool = False,
-        src_main: Artifact | None = None,
-        unit_plugin_flags = None,
-        srcs_plugin_flags = {},
-        extra_tool_paths = [],
-        srcs_plugin_tool_paths = {},
-        plugin_toolchain_deps = []) -> CompileResultInfo:
+        worker: WorkerInfo | None,
+        incremental: bool,
+        is_haskell_binary: bool,
+        src_main: Artifact | None,
+        plugin_params: PluginParams) -> CompileResultInfo:
     artifact_suffix = get_artifact_suffix(link_style, enable_profiling)
 
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
@@ -2130,7 +2114,7 @@ def compile(
             haskell_direct_deps_lib_infos = haskell_direct_deps_lib_infos,
             enable_haddock = enable_haddock,
             enable_profiling = enable_profiling,
-            external_tool_paths = [tool[RunInfo] for tool in ctx.attrs.external_tools] + extra_tool_paths,
+            external_tool_paths = [tool[RunInfo] for tool in ctx.attrs.external_tools] + plugin_params.global_tool_paths,
             ghc_wrapper = ctx.attrs._ghc_wrapper[RunInfo],
             haskell_toolchain = haskell_toolchain,
             linker_info = linker_info,
@@ -2150,10 +2134,7 @@ def compile(
             is_worker_execute = is_worker_execute,
             allow_cache_upload = ctx.attrs.allow_cache_upload,
             link_group_libs = attr_deps_haskell_link_group_infos(ctx, link_style),
-            unit_plugin_flags = unit_plugin_flags,
-            srcs_plugin_flags = srcs_plugin_flags,
-            srcs_plugin_tool_paths = srcs_plugin_tool_paths,
-            plugin_toolchain_deps = plugin_toolchain_deps,
+            plugin_params = plugin_params,
         ),
     ))
 
