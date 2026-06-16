@@ -63,6 +63,7 @@ load(
 )
 load(
     ":ghc_plugin.bzl",
+    "PluginParams",
     "compute_plugin_flags",
     "validate_plugins_attrs",
 )
@@ -777,12 +778,8 @@ def _build_haskell_lib(
         md_file: Artifact,
         # The non-profiling artifacts are also needed to build the package for
         # profiling, so it should be passed when `enable_profiling` is True.
-        non_profiling_hlib: [HaskellLibBuildOutput, None] = None,
-        unit_plugin_flags = None,
-        srcs_plugin_flags = {},
-        extra_tool_paths = [],
-        srcs_plugin_tool_paths = {},
-        plugin_toolchain_deps = []) -> HaskellLibBuildOutput:
+        non_profiling_hlib: [HaskellLibBuildOutput, None],
+        plugin_params: PluginParams) -> HaskellLibBuildOutput:
     linker_info = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info
 
     # Link the objects into a library
@@ -803,11 +800,7 @@ def _build_haskell_lib(
         incremental = ctx.attrs.incremental,
         is_haskell_binary = False,
         src_main = None,
-        unit_plugin_flags = unit_plugin_flags,
-        srcs_plugin_flags = srcs_plugin_flags,
-        extra_tool_paths = extra_tool_paths,
-        srcs_plugin_tool_paths = srcs_plugin_tool_paths,
-        plugin_toolchain_deps = plugin_toolchain_deps,
+        plugin_params = plugin_params,
     )
     solibs = {}
     artifact_suffix = get_artifact_suffix(link_style, enable_profiling)
@@ -1115,7 +1108,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 # Profiling isn't support with dynamic linking
                 continue
 
-            plugin_flags = compute_plugin_flags(ctx, link_style)
+            plugin_params = compute_plugin_flags(ctx, link_style)
 
             # Request the build plan from GHC in order to resolve dependencies between modules.
             # This is executed for each output style even though the dependency graph is independent of it.
@@ -1148,11 +1141,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 enable_haddock = not enable_profiling and not non_profiling_hlib,
                 md_file = md_file,
                 non_profiling_hlib = non_profiling_hlib.get(link_style),
-                unit_plugin_flags = plugin_flags.unit,
-                srcs_plugin_flags = plugin_flags.srcs,
-                extra_tool_paths = plugin_flags.global_tool_paths,
-                srcs_plugin_tool_paths = plugin_flags.srcs_tool_paths,
-                plugin_toolchain_deps = plugin_flags.plugin_toolchain_deps,
+                plugin_params = plugin_params,
             )
             if not enable_profiling:
                 non_profiling_hlib[link_style] = hlib_build_out
@@ -1575,7 +1564,7 @@ def _haskell_executable(ctx: AnalysisContext) -> HaskellExecutableOutput:
 
     # Validate and compute GHC plugin flags.
     validate_plugins_attrs(ctx)
-    plugin_flags = compute_plugin_flags(ctx, link_style)
+    plugin_params = compute_plugin_flags(ctx, link_style)
 
     md_file = target_metadata(
         ctx,
@@ -1601,11 +1590,7 @@ def _haskell_executable(ctx: AnalysisContext) -> HaskellExecutableOutput:
         pkgname = pkgname,
         is_haskell_binary = True,
         src_main = src_main,
-        unit_plugin_flags = plugin_flags.unit,
-        srcs_plugin_flags = plugin_flags.srcs,
-        extra_tool_paths = plugin_flags.global_tool_paths,
-        srcs_plugin_tool_paths = plugin_flags.srcs_tool_paths,
-        plugin_toolchain_deps = plugin_flags.plugin_toolchain_deps,
+        plugin_params = plugin_params,
     )
 
     toolchain_libs = [dep[HaskellToolchainLibrary].name for dep in attr_deps(ctx) if HaskellToolchainLibrary in dep]

@@ -944,18 +944,7 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
             worker = haskell_toolchain.worker[WorkerInfo]
         compile_link_style = LinkStyle("shared")
 
-        # Mirrors haskell_library_impl's plugin-flag plumbing so that the
-        # `plugins` / `srcs_plugins` attrs apply when haskell_ghci's own srcs
-        # are pre-compiled as a package.
-        plugin_flags = compute_plugin_flags(ctx, compile_link_style)
-        plugin_tool_paths = []
-        for plugin_dep in ctx.attrs.plugins:
-            for tool in plugin_dep[GhcPluginInfo].tools:
-                plugin_tool_paths.append(tool[RunInfo])
-        for plugin_list in ctx.attrs.srcs_plugins.values():
-            for plugin_dep in plugin_list:
-                for tool in plugin_dep[GhcPluginInfo].tools:
-                    plugin_tool_paths.append(tool[RunInfo])
+        plugin_params = compute_plugin_flags(ctx, compile_link_style)
 
         src_md_file = target_metadata(
             ctx,
@@ -979,9 +968,7 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
             worker = worker,
             pkgname = src_pkgname,
             is_haskell_binary = False,
-            unit_plugin_flags = plugin_flags.unit,
-            srcs_plugin_flags = plugin_flags.srcs,
-            extra_tool_paths = plugin_tool_paths,
+            plugin_params = plugin_params,
         )
 
         src_artifact_suffix = get_artifact_suffix(compile_link_style, enable_profiling)
