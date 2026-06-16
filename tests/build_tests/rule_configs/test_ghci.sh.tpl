@@ -9,7 +9,7 @@ SCRIPTDIR=$(dirname "$0")
 for target in \
     buck2-haskell//tests/build_tests/rule_configs:ghci_lib
 do
-    if ! buck2 run --no-remote-cache --isolation-dir ghci_tests "$target" -- \
+    if ! buck2 run --isolation-dir ghci_tests "$target" -- \
            -e ':set -v0' -e 'putStrLn Lib.greeting' | grep -q "Hello from Lib"; then
         echo "FAIL $target"
         exit 1
@@ -21,7 +21,7 @@ done
 # real_plugin: the plugin replaces all string literals with "plugin_ok".
 # Loading GhciPluginTest.hs in GHCi should produce the replaced value.
 target="buck2-haskell//tests/plugins:ghci_real_plugin"
-if ! buck2 run --no-remote-cache --isolation-dir ghci_tests "$target" -- \
+if ! buck2 run --isolation-dir ghci_tests "$target" -- \
       -e ':set -v0' -e ':load '$SCRIPTDIR'/%GhciPluginTest.hs%' -e 'putStrLn testGreeting' \
        | grep -q "plugin_ok"; then
     echo "FAIL $target (expected 'plugin_ok')"
