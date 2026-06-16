@@ -28,7 +28,6 @@ haskell_library(
     name = "noop_plugin_lib",
     srcs = ["NoopPlugin.hs"],
     deps = [":base", ":ghc"],
-    allow_worker = False,
 )
 
 ghc_plugin(
@@ -44,7 +43,6 @@ haskell_binary(
     srcs = ["Lib.hs"],
     main = "Lib",
     deps = [":base"],
-    allow_worker = False,
 )
 
 # --- Error: plugins and srcs_plugins are mutually exclusive ----------------
@@ -56,7 +54,6 @@ haskell_library(
         "Lib.hs": [":noop_plugin"],
     },
     deps = [":base"],
-    allow_worker = False,
 )
 
 # --- Error: ghc_plugin deps must provide HaskellLibraryProvider ------------
@@ -75,6 +72,5 @@ haskell_library(
         "Lib.hs": [":noop_plugin"],
     },
     deps = [":base"],
-    allow_worker = False,
 )
 

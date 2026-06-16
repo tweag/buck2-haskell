@@ -40,7 +40,6 @@ haskell_library(
         ":plugin_lib_backend",
     ],
     visibility = ["//tests/..."],
-    allow_worker = False,
 )
 
 haskell_library(
@@ -53,7 +52,6 @@ haskell_library(
         "//tests:process",
     ],
     visibility = ["//tests/..."],
-    allow_worker = False,
 )
 
 # A trivial tool binary that the plugin invokes during compilation.
@@ -65,7 +63,6 @@ haskell_binary(
     link_style = "static",
     deps = ["//tests:base"],
     visibility = ["//tests/..."],
-    allow_worker = False,
 )
 
 # ghc_plugin with tools and plugin_opts.
@@ -92,7 +89,6 @@ haskell_library(
         "//tests:ghc",
     ],
     visibility = ["//tests/..."],
-    allow_worker = False,
 )
 
 ghc_plugin(
@@ -115,7 +111,6 @@ haskell_library(
     plugins = [":real_plugin"],
     deps = ["//tests:base"],
     visibility = ["//tests/..."],
-    allow_worker = False,
 )
 
 # Consumer test: imports PluginLib.greeting and verifies it was replaced.
@@ -126,7 +121,6 @@ haskell_test(
         "//tests:base",
         ":lib_real_plugin",
     ],
-    allow_worker = False,
 )
 
 # =============================================================================
@@ -141,7 +135,6 @@ haskell_library(
     },
     deps = ["//tests:base"],
     visibility = ["//tests/..."],
-    allow_worker = False,
 )
 
 haskell_test(
@@ -151,7 +144,6 @@ haskell_test(
         "//tests:base",
         ":lib_srcs_real_plugin",
     ],
-    allow_worker = False,
 )
 
 # =============================================================================
@@ -168,7 +160,6 @@ haskell_library(
         "-fplugin-opt=OrderPlugin:gamma",
     ],
     visibility = ["//tests/..."],
-    allow_worker = False,
 )
 
 haskell_test(
@@ -178,7 +169,6 @@ haskell_test(
         "//tests:base",
         ":lib_order_plugin",
     ],
-    allow_worker = False,
 )
 
 # =============================================================================
@@ -191,7 +181,6 @@ haskell_binary(
     link_style = "static",
     plugins = [":real_plugin"],
     deps = ["//tests:base"],
-    allow_worker = False,
 )
 
 haskell_binary(
@@ -200,7 +189,6 @@ haskell_binary(
     link_style = "shared",
     plugins = [":real_plugin"],
     deps = ["//tests:base"],
-    allow_worker = False,
 )
 
 # =============================================================================
@@ -215,7 +203,6 @@ haskell_binary(
         "PluginMain.hs": [":real_plugin"],
     },
     deps = ["//tests:base"],
-    allow_worker = False,
 )
 
 haskell_binary(
@@ -226,7 +213,6 @@ haskell_binary(
         "PluginMain.hs": [":real_plugin"],
     },
     deps = ["//tests:base"],
-    allow_worker = False,
 )
 
 # =============================================================================
@@ -243,7 +229,6 @@ haskell_binary(
         "-fplugin-opt=OrderPlugin:beta",
         "-fplugin-opt=OrderPlugin:gamma",
     ],
-    allow_worker = False,
 )
 
 # =============================================================================
@@ -285,7 +270,6 @@ haskell_test(
     link_style = "static",
     plugins = [":real_plugin"],
     deps = ["//tests:base"],
-    allow_worker = False,
 )
 
 haskell_test(
@@ -294,7 +278,6 @@ haskell_test(
     link_style = "shared",
     plugins = [":real_plugin"],
     deps = ["//tests:base"],
-    allow_worker = False,
 )
 
 # =============================================================================
@@ -309,7 +292,6 @@ haskell_test(
         "PluginMain.hs": [":real_plugin"],
     },
     deps = ["//tests:base"],
-    allow_worker = False,
 )
 
 haskell_test(
@@ -324,7 +306,6 @@ haskell_test(
         "PluginMain.hs": [":real_plugin"],
     },
     deps = ["//tests:base"],
-    allow_worker = False,
 )
 
 # =============================================================================
@@ -341,7 +322,6 @@ haskell_test(
         "-fplugin-opt=OrderPlugin:beta",
         "-fplugin-opt=OrderPlugin:gamma",
     ],
-    allow_worker = False,
 )
 
 # =============================================================================
@@ -410,7 +390,6 @@ haskell_test(
         "//tests:base",
         "//tests:inspection-testing",
     ],
-    allow_worker = False,
 )
 
 haskell_test(
@@ -422,7 +401,6 @@ haskell_test(
         "//tests:base",
         "//tests:inspection-testing",
     ],
-    allow_worker = False,
 )
 
 # --- srcs_plugins variants (per-module) ---
@@ -438,7 +416,6 @@ haskell_test(
         "//tests:base",
         "//tests:inspection-testing",
     ],
-    allow_worker = False,
 )
 
 haskell_test(
@@ -452,5 +429,4 @@ haskell_test(
         "//tests:base",
         "//tests:inspection-testing",
     ],
-    allow_worker = False,
 )

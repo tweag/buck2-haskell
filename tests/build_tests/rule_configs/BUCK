@@ -19,7 +19,6 @@ haskell_library(
     srcs = ["Lib.hs"],
     deps = ["//tests:base"],
     visibility = ["//tests/..."],
-    allow_worker = False,
 )
 
 # =============================================================================
@@ -46,7 +45,6 @@ haskell_binary(
         ":lib",
         "//tests:base",
     ],
-    allow_worker = False,
 )
 
 # Test: haskell_binary with shared (dynamic) linking.
@@ -58,7 +56,6 @@ haskell_binary(
         ":lib",
         "//tests:base",
     ],
-    allow_worker = False,
 )
 
 # Test: haskell_binary with custom main module name (shared)
@@ -70,7 +67,6 @@ haskell_binary(
     deps = [
         "//tests:base",
     ],
-    allow_worker = False,
 )
 
 # Test: haskell_binary with custom main module name (static)
@@ -82,7 +78,6 @@ haskell_binary(
     deps = [
         "//tests:base",
     ],
-    allow_worker = False,
 )
 
 # sh_tests that run each binary to verify correct linking and runtime behavior.
@@ -120,7 +115,6 @@ haskell_test(
         ":lib",
         "//tests:base",
     ],
-    allow_worker = False,
 )
 
 haskell_test(
@@ -131,7 +125,6 @@ haskell_test(
         ":lib",
         "//tests:base",
     ],
-    allow_worker = False,
 )
 
 # =============================================================================
