@@ -8,7 +8,6 @@ haskell_library(
     name = "pkgA",
     srcs = ["A.hs"],
     deps = ["//tests:base"],
-    allow_worker = False,
 )
 
 haskell_binary(
@@ -20,7 +19,6 @@ haskell_binary(
     ],
     link_style = "static_pic",
     link_haskell_objects_at_once = True,
-    allow_worker = False,
 )
 
 sh_test(
