@@ -151,7 +151,6 @@ def _add_plugin_flags(args, info, link_style):
     # a plugin.
     for name in info.toolchain_deps:
         args.add("-plugin-package", name)
-    args.add("-fplugin={}".format(info.module))
     for opt in info.plugin_opts:
         args.add("-fplugin-opt={}:{}".format(info.module, opt))
 

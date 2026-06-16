@@ -130,9 +130,7 @@ haskell_test(
 haskell_library(
     name = "lib_srcs_real_plugin",
     srcs = ["PluginLib.hs"],
-    srcs_plugins = {
-        "PluginLib.hs": [":real_plugin"],
-    },
+    plugins = [":real_plugin"],
     deps = ["//tests:base"],
     visibility = ["//tests/..."],
 )
@@ -199,9 +197,7 @@ haskell_binary(
     name = "bin_srcs_real_plugin_static",
     srcs = ["PluginMain.hs"],
     link_style = "static",
-    srcs_plugins = {
-        "PluginMain.hs": [":real_plugin"],
-    },
+    plugins = [":real_plugin"],
     deps = ["//tests:base"],
 )
 
@@ -209,9 +205,7 @@ haskell_binary(
     name = "bin_srcs_real_plugin_shared",
     srcs = ["PluginMain.hs"],
     link_style = "shared",
-    srcs_plugins = {
-        "PluginMain.hs": [":real_plugin"],
-    },
+    plugins = [":real_plugin"],
     deps = ["//tests:base"],
 )
 
@@ -288,9 +282,7 @@ haskell_test(
     name = "ht_srcs_real_plugin_static",
     srcs = ["PluginMain.hs"],
     link_style = "static",
-    srcs_plugins = {
-        "PluginMain.hs": [":real_plugin"],
-    },
+    plugins = [":real_plugin"],
     deps = ["//tests:base"],
 )
 
@@ -302,9 +294,7 @@ haskell_test(
         "PluginMain2.hs",
     ],
     link_style = "shared",
-    srcs_plugins = {
-        "PluginMain.hs": [":real_plugin"],
-    },
+    plugins = [":real_plugin"],
     deps = ["//tests:base"],
 )
 
@@ -409,9 +399,7 @@ haskell_test(
     name = "ht_srcs_inspection_static",
     srcs = ["InspectionMain.hs"],
     link_style = "static",
-    srcs_plugins = {
-        "InspectionMain.hs": [":inspection_plugin"],
-    },
+    plugins = [":inspection_plugin"],
     deps = [
         "//tests:base",
         "//tests:inspection-testing",
@@ -422,9 +410,7 @@ haskell_test(
     name = "ht_srcs_inspection_shared",
     srcs = ["InspectionMain.hs"],
     link_style = "shared",
-    srcs_plugins = {
-        "InspectionMain.hs": [":inspection_plugin"],
-    },
+    plugins = [":inspection_plugin"],
     deps = [
         "//tests:base",
         "//tests:inspection-testing",

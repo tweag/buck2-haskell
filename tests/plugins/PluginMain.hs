@@ -3,6 +3,7 @@
 -- correctly with option @"plugin_ok"@, it will have been replaced with
 -- @"plugin_ok"@ at compile time. We compare against the char-list form
 -- which is NOT a string literal and therefore is not modified by the plugin.
+{-# OPTIONS_GHC -fplugin=Plugin #-}
 module Main (main) where
 
 main :: IO ()

@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -fplugin=Test.Inspection.Plugin #-}
 -- | Test using inspection-testing as a toolchain-library GHC plugin.
 -- The plugin verifies at compile time that GHC sees @myId@ and @myId2@
 -- as the same Core expression.
