@@ -16,7 +16,6 @@ haskell_library(
     strip_prefix = ["src"],
     deps = ["//tests:base"],
     visibility = ["//tests/..."],
-    allow_worker = False,
 )
 
 haskell_binary(
@@ -27,7 +26,6 @@ haskell_binary(
         ":lib",
         "//tests:base",
     ],
-    allow_worker = False,
 )
 
 sh_test(
