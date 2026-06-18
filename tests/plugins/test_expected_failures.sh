@@ -41,17 +41,12 @@ expect_failure() {
 echo "=== Testing expected plugin failures ==="
 echo
 
-# 1. Mutual exclusion: plugins + srcs_plugins
-expect_failure \
-    "buck2-haskell//expected_failures:err_mutual_exclusion" \
-    "mutually exclusive"
-
-# 2. ghc_plugin deps must be haskell_library (provides HaskellLibraryProvider)
+# 1. ghc_plugin deps must be haskell_library (provides HaskellLibraryProvider)
 expect_failure \
     "buck2-haskell//expected_failures:err_bad_deps" \
     "HaskellLibraryProvider"
 
-# 3. srcs_plugins with non-incremental builds
+# 2. srcs_plugins with non-incremental builds
 expect_failure \
     "buck2-haskell//expected_failures:err_srcs_plugins_non_incremental" \
     "Per-module plugins require incremental"

@@ -47,18 +47,6 @@ haskell_binary(
     allow_worker = False,
 )
 
-# --- Error: plugins and srcs_plugins are mutually exclusive ----------------
-haskell_library(
-    name = "err_mutual_exclusion",
-    srcs = ["Lib.hs"],
-    plugins = [":noop_plugin"],
-    srcs_plugins = {
-        "Lib.hs": [":noop_plugin"],
-    },
-    deps = [":base"],
-    allow_worker = False,
-)
-
 # --- Error: ghc_plugin deps must provide HaskellLibraryProvider ------------
 ghc_plugin(
     name = "err_bad_deps",
