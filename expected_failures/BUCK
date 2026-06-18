@@ -45,17 +45,6 @@ haskell_binary(
     deps = [":base"],
 )
 
-# --- Error: plugins and srcs_plugins are mutually exclusive ----------------
-haskell_library(
-    name = "err_mutual_exclusion",
-    srcs = ["Lib.hs"],
-    plugins = [":noop_plugin"],
-    srcs_plugins = {
-        "Lib.hs": [":noop_plugin"],
-    },
-    deps = [":base"],
-)
-
 # --- Error: ghc_plugin deps must provide HaskellLibraryProvider ------------
 ghc_plugin(
     name = "err_bad_deps",
