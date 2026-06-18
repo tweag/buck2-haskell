@@ -70,15 +70,9 @@ def ghc_plugin_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
     ]
 
-def get_plugin_flags(ctx, link_style, plugin_info = None) -> cmd_args:
+def get_plugin_flags(ctx, link_style) -> cmd_args:
     """
-    Compute GHC compiler flags for GHC plugins.
-
-    Can be called in two modes:
-    1. With a context: `get_plugin_flags(ctx, link_style)` - computes flags for all
-       plugins in `ctx.attrs.plugins`.
-    2. With a specific plugin_info: `get_plugin_flags(ctx, link_style, plugin_info = info)` -
-       computes flags for a single plugin.
+    Compute GHC compiler flags for all plugins in `ctx.attrs.plugins`.
 
     For each plugin, the following flags are produced:
       - `-package-db <db>` and `-plugin-package <id>` for each dep
@@ -88,26 +82,18 @@ def get_plugin_flags(ctx, link_style, plugin_info = None) -> cmd_args:
     Args:
         ctx: An AnalysisContext
         link_style: The link style to use when looking up library info.
-        plugin_info: Optional single GhcPluginInfo to compute flags for.
 
     Returns:
         cmd_args with all plugin-related GHC flags.
     """
     args = cmd_args()
-
-    if plugin_info != None:
-        # Single plugin mode
-        _add_plugin_flags(args, plugin_info, link_style)
-        return args
-
-    # Context mode: get all plugins from ctx.attrs.plugins
     plugins = getattr(ctx.attrs, "plugins", [])
     for plugin_dep in plugins:
         info = plugin_dep[GhcPluginInfo]
-        _add_plugin_flags(args, info, link_style)
+        _add_plugin_info_flags(args, info, link_style)
     return args
 
-def _add_plugin_flags(args, info, link_style):
+def _add_plugin_info_flags(args, info, link_style):
     """Add GHC flags for a single plugin to the given cmd_args."""
     # Handle regular haskell_library deps.
     for dep in info.deps:
@@ -191,7 +177,7 @@ def compute_plugin_flags(ctx: AnalysisContext, link_style) -> PluginParams:
             tools = []
             for plugin_dep in plugin_list:
                 plugin_info = plugin_dep[GhcPluginInfo]
-                flags.add(get_plugin_flags(ctx, link_style, plugin_info = plugin_info))
+                _add_plugin_info_flags(flags, plugin_info, link_style)
                 for tool in plugin_info.tools:
                     tools.append(tool[RunInfo])
                 plugin_toolchain_deps.extend(plugin_info.toolchain_deps)
