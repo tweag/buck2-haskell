@@ -218,20 +218,10 @@ def get_plugin_tool_paths(plugins: list[Dependency]) -> list[RunInfo]:
 
 def validate_plugins_attrs(ctx: AnalysisContext):
     """
-    Validate plugin attribute constraints:
-    1. `plugins` and `srcs_plugins` are not both specified.
-    2. `srcs_plugins` is not used with non-incremental builds.
-    Produces a build error if any constraint is violated.
+    Validate plugin attributes: `srcs_plugins` is not used with non-incremental builds.
+    Produces an error if validation fails.
     """
-    plugins = getattr(ctx.attrs, "plugins", [])
     srcs_plugins = getattr(ctx.attrs, "srcs_plugins", {})
-    if plugins and srcs_plugins:
-        fail(
-            "Target '{}' specifies both 'plugins' and 'srcs_plugins'. " +
-            "These attributes are mutually exclusive. Use 'plugins' to enable " +
-            "plugins globally for all modules, or 'srcs_plugins' to enable " +
-            "plugins per-module, but not both.".format(ctx.label),
-        )
     incremental = getattr(ctx.attrs, "incremental", True)
     if srcs_plugins and not incremental:
         fail(

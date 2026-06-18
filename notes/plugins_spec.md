@@ -37,9 +37,6 @@ the plugin enabled.
 ### Validations
 
 Whenever the `srcs_plugins` attribute is specified on a rule:
-* An error should be produced if the `plugin` attribute is also specified.
-  Otherwise, `plugin` would be silently ignored, which could be confusing for
-  the user.
 * Likewise, an error should be produced if `srcs_plugins` is used and the build
   mode is non-incremental, where GHC does not provide a way to specify plugins
   per-module.
