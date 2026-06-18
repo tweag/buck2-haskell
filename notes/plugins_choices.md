@@ -304,7 +304,6 @@ emitted so GHC exposes the package for plugin loading.
 
 | Error condition | Target name | Expected error substring |
 |---|---|---|
-| `plugins` + `srcs_plugins` both set | `err_mutual_exclusion` | `"mutually exclusive"` |
 | `ghc_plugin.deps` is not a haskell_library or toolchain library | `err_bad_deps` | `"HaskellLibraryProvider or HaskellToolchainLibrary"` |
 | `srcs_plugins` + `incremental = False` | `err_srcs_plugins_non_incremental` | `"Per-module plugins require incremental"` |
 
