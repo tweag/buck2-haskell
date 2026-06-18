@@ -70,6 +70,7 @@ load(
     ":ghc_plugin.bzl",
     "GhcPluginInfo",
     "get_plugin_flags",
+    "plugin_flags_as_cmd_args",
     "validate_plugins_attrs",
 )
 load(
@@ -1154,7 +1155,7 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
     omnibus_data = _build_haskell_omnibus_so(ctx)
 
     # Compute plugin flags and collect tool paths.
-    plugin_flags = get_plugin_flags(ctx, link_style)
+    plugin_flags = plugin_flags_as_cmd_args(get_plugin_flags(ctx, link_style))
     plugin_tool_symlinks = {}
     plugin_hidden = []
     for plugin_dep in getattr(ctx.attrs, "plugins", []):

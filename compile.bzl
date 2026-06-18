@@ -48,6 +48,7 @@ load(
     ":ghc_plugin.bzl",
     "PluginParams",
     "compute_plugin_flags",
+    "plugin_flags_as_cmd_args",
 )
 load(
     ":util.bzl",
@@ -694,7 +695,10 @@ def target_metadata(
     # stored in the HUG include plugin info for the compile step. In non-worker
     # mode the metadata step runs `ghc -M` which must NOT receive -fplugin flags
     # (GHC would attempt to load the plugin during makedepend, which fails).
-    worker_plugin_flags = compute_plugin_flags(ctx, link_style).unit if is_worker_execute else None
+    if is_worker_execute:
+        worker_plugin_flags = plugin_flags_as_cmd_args(compute_plugin_flags(ctx, link_style).unit)
+    else:
+        worker_plugin_flags = None
 
     ctx.actions.dynamic_output_new(_dynamic_target_metadata(
         pkg_deps = haskell_toolchain.packages.dynamic if haskell_toolchain.packages else None,
@@ -1041,7 +1045,7 @@ def _common_compile_module_args(
         haskell_toolchain = arg.haskell_toolchain,
         compiler_flags = arg.compiler_flags,
         is_worker_execute = is_worker_execute,
-        plugin_flags = arg.plugin_params.unit,
+        plugin_flags = plugin_flags_as_cmd_args(arg.plugin_params.unit),
     )
 
     non_haskell_sources = [
