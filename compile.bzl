@@ -698,13 +698,18 @@ def target_metadata(
     # mode the metadata step runs `ghc -M` which must NOT receive -fplugin flags
     # (GHC would attempt to load the plugin during makedepend, which fails).
     if is_worker_execute:
-        _plugin_flags = compute_plugin_flags(ctx, link_style).unit
+        _plugin_flags = compute_plugin_flags(ctx, link_style)
+        # combine pkg_flags dictionaries
+        all_pkg_flags = dict(_plugin_flags.unit.pkg_flags)
+        for src_plugin_flags in _plugin_flags.srcs.values():
+            all_pkg_flags.update(src_plugin_flags.pkg_flags)
+        # convert combined pkg_flags to cmd_args
+        srcs_pkgs_args = cmd_args()
+        for args in all_pkg_flags.values():
+            srcs_pkgs_args.add(args)
         # Note how we skip the hidden inputs of the plugins, they should be
         # needed only by the compile step.
-        worker_plugin_flags = cmd_args(
-            pkg_flags_as_cmd_args(_plugin_flags.pkg_flags),
-            _plugin_flags.mod_flags
-        )
+        worker_plugin_flags = cmd_args(srcs_pkgs_args, _plugin_flags.unit.mod_flags)
     else:
         worker_plugin_flags = None
 
