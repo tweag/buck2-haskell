@@ -72,16 +72,28 @@ def ghc_plugin_impl(ctx: AnalysisContext) -> list[Provider]:
 
 PluginFlags = record(
     # -plugin-package, and -package-db
-    pkg_flags = field(cmd_args),
+    # We keep these flags separate per-plugin label to ensure that we can de-dup them
+    pkg_flags = field(dict[Label, cmd_args]),
     # -fplugin and -fplugin-opt
     mod_flags = field(cmd_args),
     # hidden inputs (interface, object files, and libraries)
     hidden = field(cmd_args),
 )
 
+def pkg_flags_as_cmd_args(pkg_flags: dict[Label, cmd_args]) -> cmd_args:
+    """Extract just the package-related flags from PluginFlags."""
+    pkg_args = cmd_args()
+    for pkg_arg in pkg_flags.values():
+        pkg_args.add(pkg_arg)
+    return pkg_args
+
 def plugin_flags_as_cmd_args(plugin_flags: PluginFlags) -> cmd_args:
     """Flatten PluginFlags into a single cmd_args object."""
-    return cmd_args(plugin_flags.pkg_flags, plugin_flags.mod_flags, hidden = plugin_flags.hidden)
+    return cmd_args(
+        pkg_flags_as_cmd_args(plugin_flags.pkg_flags),
+        plugin_flags.mod_flags,
+        hidden = plugin_flags.hidden,
+    )
 
 def get_plugin_flags(ctx, link_style) -> PluginFlags:
     """
@@ -96,14 +108,16 @@ def get_plugin_flags(ctx, link_style) -> PluginFlags:
         ctx: An AnalysisContext
         link_style: The link style to use when looking up library info.
     """
-    pkg_flags = cmd_args()
+    pkg_flags = {}
     mod_flags = cmd_args()
     hidden = cmd_args()
     plugins = getattr(ctx.attrs, "plugins", [])
     for plugin_dep in plugins:
+        pkg_args = cmd_args()
         info = plugin_dep[GhcPluginInfo]
-        _add_plugin_flags(pkg_flags, mod_flags, info, link_style)
+        _add_plugin_flags(pkg_args, mod_flags, info, link_style)
         _add_plugin_hidden_inputs(hidden, info, link_style)
+        pkg_flags[plugin_dep.label] = pkg_args
     return PluginFlags(
         pkg_flags = pkg_flags,
         mod_flags = mod_flags,
@@ -208,17 +222,19 @@ def compute_plugin_flags(ctx: AnalysisContext, link_style) -> PluginParams:
 
     if getattr(ctx.attrs, "srcs_plugins", None):
         for src, plugin_list in ctx.attrs.srcs_plugins.items():
-            pkg_flags = cmd_args()
+            pkg_flags = {}
             mod_flags = cmd_args()
             hidden = cmd_args()
             tools = []
             for plugin_dep in plugin_list:
+                pkg_args = cmd_args()
                 plugin_info = plugin_dep[GhcPluginInfo]
-                _add_plugin_flags(pkg_flags, mod_flags, plugin_info, link_style)
+                _add_plugin_flags(pkg_args, mod_flags, plugin_info, link_style)
                 _add_plugin_hidden_inputs(hidden, plugin_info, link_style)
                 for tool in plugin_info.tools:
                     tools.append(tool[RunInfo])
                 plugin_toolchain_deps.extend(plugin_info.toolchain_deps)
+                pkg_flags[plugin_dep.label] = pkg_args
             srcs[src] = PluginFlags(
                 pkg_flags = pkg_flags,
                 mod_flags = mod_flags,

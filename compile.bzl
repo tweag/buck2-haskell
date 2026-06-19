@@ -48,6 +48,7 @@ load(
     ":ghc_plugin.bzl",
     "PluginParams",
     "compute_plugin_flags",
+    "pkg_flags_as_cmd_args",
     "plugin_params_srcs_as_cmd_args",
     "plugin_flags_as_cmd_args",
 )
@@ -712,7 +713,10 @@ def target_metadata(
         _plugin_flags = compute_plugin_flags(ctx, link_style).unit
         # Note how we skip the hidden inputs of the plugins, they should be
         # needed only by the compile step.
-        worker_plugin_flags = cmd_args(_plugin_flags.pkg_flags, _plugin_flags.mod_flags)
+        worker_plugin_flags = cmd_args(
+            pkg_flags_as_cmd_args(_plugin_flags.pkg_flags),
+            _plugin_flags.mod_flags
+        )
     else:
         worker_plugin_flags = None
 
