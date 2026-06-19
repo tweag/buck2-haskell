@@ -349,6 +349,10 @@ UnitParams = record(
     is_worker_execute = field(bool),
     # GHC plugin flags applied to all modules in the unit.
     plugin_flags = field(cmd_args | None, default = None),
+    # GHC plugin flags for each source file, used only in worker execute mode.
+    # The keys are module names and the values are lists of lists of flags.
+    # See PluginFlags.mod_flags for the format of the inner lists of flags.
+    per_module_plugin_flags = field(dict[typing.Any, list[list[str]]], default = {}),
 )
 
 def _add_dynamic_too_if_required(is_worker_execute: bool, link_style: LinkStyle, args: cmd_args) -> bool:
@@ -597,6 +601,13 @@ def _dynamic_target_metadata_impl(
         bp_args.add("--ghc-dir", haskell_toolchain.ghc_dir)
         add_worker_args(haskell_toolchain, bp_args, unit.artifact_suffix)
 
+        # write the plugin module flags as json in a file for the build-plan step
+        plugin_flags_file = actions.declare_output(
+            unit.name + "-" + unit.artifact_suffix + "-per-module-plugin-flags.json"
+        )
+        _flags_json = actions.write_json(plugin_flags_file, unit.per_module_plugin_flags)
+        bp_args.add(cmd_args(_flags_json, prepend = "--ghc-per-module-plugins-args-file"))
+
         bp_args.add(buck2_args)
         # Specifying this activates the new build plan logic
         bp_args.add("--build-plan", cmd_args(build_plan, ignore_artifacts = True))
@@ -714,8 +725,15 @@ def target_metadata(
             per_module_pkgs_args,
             mod_flags_as_cmd_args(_plugin_flags.unit.mod_flags)
         )
+
+        # collect -fplugin and -fplugin-opt flags for each source plugin
+        per_module_mod_flags = {}
+        for mod, mod_plugin_flags in _plugin_flags.per_module.items():
+            per_module_mod_flags[mod] = mod_plugin_flags.mod_flags
+
     else:
         worker_plugin_flags = None
+        per_module_mod_flags = {}
 
     ctx.actions.dynamic_output_new(_dynamic_target_metadata(
         pkg_deps = haskell_toolchain.packages.dynamic if haskell_toolchain.packages else None,
@@ -734,6 +752,7 @@ def target_metadata(
                     compiler_flags = ctx.attrs.compiler_flags,
                     is_worker_execute = is_worker_execute,
                     plugin_flags = worker_plugin_flags,
+                    per_module_plugin_flags = per_module_mod_flags,
                 ),
                 toolchain_libs = toolchain_libs,
                 deps = attr_deps(ctx),
