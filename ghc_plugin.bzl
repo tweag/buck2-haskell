@@ -179,8 +179,8 @@ def _add_plugin_flags(args, mod_args, info, link_style):
 PluginParams = record(
     # unit-level plugin flags for global plugins
     unit = field(PluginFlags),
-    # dict mapping source file to cmd_args for per-module plugins
-    srcs = field(dict[typing.Any, cmd_args]),
+    # dict mapping source file to plugin flags for per-module plugins
+    srcs = field(dict[typing.Any, PluginFlags]),
     # list[RunInfo] for global plugin tools
     global_tool_paths = field(list[RunInfo]),
     # dict mapping source file to list[RunInfo] for per-module plugin tools
@@ -219,7 +219,11 @@ def compute_plugin_flags(ctx: AnalysisContext, link_style) -> PluginParams:
                 for tool in plugin_info.tools:
                     tools.append(tool[RunInfo])
                 plugin_toolchain_deps.extend(plugin_info.toolchain_deps)
-            srcs[src] = cmd_args(pkg_flags, mod_flags, hidden = hidden)
+            srcs[src] = PluginFlags(
+                pkg_flags = pkg_flags,
+                mod_flags = mod_flags,
+                hidden = hidden,
+            )
             if tools:
                 srcs_tool_paths[src] = tools
 
@@ -230,6 +234,13 @@ def compute_plugin_flags(ctx: AnalysisContext, link_style) -> PluginParams:
         srcs_tool_paths = srcs_tool_paths,
         plugin_toolchain_deps = plugin_toolchain_deps,
     )
+
+def plugin_params_srcs_as_cmd_args(params: PluginParams, srcfile: typing.Any) -> cmd_args:
+    """Get the plugin flags for a given source file."""
+    if srcfile in params.srcs:
+        return plugin_flags_as_cmd_args(params.srcs[srcfile])
+    else:
+        return cmd_args()
 
 def get_plugin_tool_paths(plugins: list[Dependency]) -> list[RunInfo]:
     """Extract RunInfo tool paths from all plugins."""
