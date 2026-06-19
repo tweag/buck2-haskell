@@ -71,15 +71,17 @@ def ghc_plugin_impl(ctx: AnalysisContext) -> list[Provider]:
     ]
 
 PluginFlags = record(
-    # -fplugin, -fplugin-opt, -plugin-package, and -package-db
-    flags = field(cmd_args),
+    # -plugin-package, and -package-db
+    pkg_flags = field(cmd_args),
+    # -fplugin and -fplugin-opt
+    mod_flags = field(cmd_args),
     # hidden inputs (interface, object files, and libraries)
     hidden = field(cmd_args),
 )
 
 def plugin_flags_as_cmd_args(plugin_flags: PluginFlags) -> cmd_args:
     """Flatten PluginFlags into a single cmd_args object."""
-    return cmd_args(plugin_flags.flags, hidden = plugin_flags.hidden)
+    return cmd_args(plugin_flags.pkg_flags, plugin_flags.mod_flags, hidden = plugin_flags.hidden)
 
 def get_plugin_flags(ctx, link_style) -> PluginFlags:
     """
@@ -94,15 +96,17 @@ def get_plugin_flags(ctx, link_style) -> PluginFlags:
         ctx: An AnalysisContext
         link_style: The link style to use when looking up library info.
     """
-    flags = cmd_args()
+    pkg_flags = cmd_args()
+    mod_flags = cmd_args()
     hidden = cmd_args()
     plugins = getattr(ctx.attrs, "plugins", [])
     for plugin_dep in plugins:
         info = plugin_dep[GhcPluginInfo]
-        _add_plugin_flags(flags, info, link_style)
+        _add_plugin_flags(pkg_flags, mod_flags, info, link_style)
         _add_plugin_hidden_inputs(hidden, info, link_style)
     return PluginFlags(
-        flags = flags,
+        pkg_flags = pkg_flags,
+        mod_flags = mod_flags,
         hidden = hidden,
     )
 
@@ -145,7 +149,7 @@ def _add_plugin_hidden_inputs(args, info, link_style):
                 if shared_lib_info:
                     args.add(shared_lib_info.libs)
 
-def _add_plugin_flags(args, info, link_style):
+def _add_plugin_flags(args, mod_args, info, link_style):
     """Add flags for the given plugin info"""
     # Handle regular haskell_library deps.
     for dep in info.deps:
@@ -167,9 +171,9 @@ def _add_plugin_flags(args, info, link_style):
     # a plugin.
     for name in info.toolchain_deps:
         args.add("-plugin-package", name)
-    args.add("-fplugin={}".format(info.module))
+    mod_args.add("-fplugin={}".format(info.module))
     for opt in info.plugin_opts:
-        args.add("-fplugin-opt={}:{}".format(info.module, opt))
+        mod_args.add("-fplugin-opt={}:{}".format(info.module, opt))
 
 
 PluginParams = record(
@@ -204,17 +208,18 @@ def compute_plugin_flags(ctx: AnalysisContext, link_style) -> PluginParams:
 
     if getattr(ctx.attrs, "srcs_plugins", None):
         for src, plugin_list in ctx.attrs.srcs_plugins.items():
-            flags = cmd_args()
+            pkg_flags = cmd_args()
+            mod_flags = cmd_args()
             hidden = cmd_args()
             tools = []
             for plugin_dep in plugin_list:
                 plugin_info = plugin_dep[GhcPluginInfo]
-                _add_plugin_flags(flags, plugin_info, link_style)
+                _add_plugin_flags(pkg_flags, mod_flags, plugin_info, link_style)
                 _add_plugin_hidden_inputs(hidden, plugin_info, link_style)
                 for tool in plugin_info.tools:
                     tools.append(tool[RunInfo])
                 plugin_toolchain_deps.extend(plugin_info.toolchain_deps)
-            srcs[src] = cmd_args(flags, hidden = hidden)
+            srcs[src] = cmd_args(pkg_flags, mod_flags, hidden = hidden)
             if tools:
                 srcs_tool_paths[src] = tools
 
