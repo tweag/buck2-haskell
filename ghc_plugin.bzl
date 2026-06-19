@@ -75,7 +75,10 @@ PluginFlags = record(
     # We keep these flags separate per-plugin label to ensure that we can de-dup them
     pkg_flags = field(dict[Label, cmd_args]),
     # -fplugin and -fplugin-opt
-    mod_flags = field(cmd_args),
+    # In each inner list, the first element is the plugin module name (for
+    # -fplugin) and the rest of the list contains the plugin options (for
+    # -fplugin-opt).
+    mod_flags = field(list[list[str]]),
     # hidden inputs (interface, object files, and libraries)
     hidden = field(cmd_args),
 )
@@ -87,11 +90,24 @@ def pkg_flags_as_cmd_args(pkg_flags: dict[Label, cmd_args]) -> cmd_args:
         pkg_args.add(pkg_arg)
     return pkg_args
 
+def mod_flags_as_cmd_args(mod_flags: list[list[str]]) -> cmd_args:
+    """Extract just the module-related flags from PluginFlags."""
+    mod_args = cmd_args()
+    for plugin_mod_flags in mod_flags:
+        if plugin_mod_flags:
+            # The first element of plugin_mod_flags is the plugin module name, and
+            # the rest are options for that plugin.
+            mod_name = plugin_mod_flags[0]
+            mod_args.add("-fplugin={}".format(mod_name))
+            for opt in plugin_mod_flags[1:]:
+                mod_args.add("-fplugin-opt={}:{}".format(mod_name, opt))
+    return mod_args
+
 def plugin_flags_as_cmd_args(plugin_flags: PluginFlags) -> cmd_args:
     """Flatten PluginFlags into a single cmd_args object."""
     return cmd_args(
         pkg_flags_as_cmd_args(plugin_flags.pkg_flags),
-        plugin_flags.mod_flags,
+        mod_flags_as_cmd_args(plugin_flags.mod_flags),
         hidden = plugin_flags.hidden,
     )
 
@@ -109,15 +125,17 @@ def get_plugin_flags(ctx, link_style) -> PluginFlags:
         link_style: The link style to use when looking up library info.
     """
     pkg_flags = {}
-    mod_flags = cmd_args()
+    mod_flags = []
     hidden = cmd_args()
     plugins = getattr(ctx.attrs, "plugins", [])
     for plugin_dep in plugins:
         pkg_args = cmd_args()
+        mod_args = []
         info = plugin_dep[GhcPluginInfo]
-        _add_plugin_flags(pkg_args, mod_flags, info, link_style)
+        _add_plugin_flags(pkg_args, mod_args, info, link_style)
         _add_plugin_hidden_inputs(hidden, info, link_style)
         pkg_flags[plugin_dep.label] = pkg_args
+        mod_flags.append(mod_args)
     return PluginFlags(
         pkg_flags = pkg_flags,
         mod_flags = mod_flags,
@@ -185,9 +203,9 @@ def _add_plugin_flags(args, mod_args, info, link_style):
     # a plugin.
     for name in info.toolchain_deps:
         args.add("-plugin-package", name)
-    mod_args.add("-fplugin={}".format(info.module))
+    mod_args.append(info.module)
     for opt in info.plugin_opts:
-        mod_args.add("-fplugin-opt={}:{}".format(info.module, opt))
+        mod_args.append(opt)
 
 
 PluginParams = record(
@@ -223,18 +241,20 @@ def compute_plugin_flags(ctx: AnalysisContext, link_style) -> PluginParams:
     if getattr(ctx.attrs, "srcs_plugins", None):
         for src, plugin_list in ctx.attrs.srcs_plugins.items():
             pkg_flags = {}
-            mod_flags = cmd_args()
+            mod_flags = []
             hidden = cmd_args()
             tools = []
             for plugin_dep in plugin_list:
                 pkg_args = cmd_args()
+                mod_args = []
                 plugin_info = plugin_dep[GhcPluginInfo]
-                _add_plugin_flags(pkg_args, mod_flags, plugin_info, link_style)
+                _add_plugin_flags(pkg_args, mod_args, plugin_info, link_style)
                 _add_plugin_hidden_inputs(hidden, plugin_info, link_style)
                 for tool in plugin_info.tools:
                     tools.append(tool[RunInfo])
                 plugin_toolchain_deps.extend(plugin_info.toolchain_deps)
                 pkg_flags[plugin_dep.label] = pkg_args
+                mod_flags.append(mod_args)
             srcs[src] = PluginFlags(
                 pkg_flags = pkg_flags,
                 mod_flags = mod_flags,
