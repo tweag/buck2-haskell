@@ -59,6 +59,7 @@ load(
     "PluginFlags",
     "PluginParams",
     "compute_plugin_flags",
+    "plugin_params_srcs_as_cmd_args",
     "plugin_flags_as_cmd_args",
 )
 load(
@@ -1652,7 +1653,7 @@ def _compile_incr(
             allow_worker = arg.allow_worker,
             allow_cache_upload = arg.allow_cache_upload,
             module_package_deps = ModulePackageDeps(packages = package_deps.get(module_name, {})),
-            module_plugin_flags = arg.plugin_params.srcs.get(module.source),
+            module_plugin_flags = plugin_params_srcs_as_cmd_args(arg.plugin_params, module.source),
             module_plugin_tool_paths = arg.plugin_params.srcs_tool_paths.get(module.source),
         )
 
