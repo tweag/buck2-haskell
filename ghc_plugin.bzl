@@ -193,11 +193,11 @@ def _add_plugin_flags(args, mod_args, info, link_style):
 PluginParams = record(
     # unit-level plugin flags for global plugins
     unit = field(PluginFlags),
-    # dict mapping source file to plugin flags for per-module plugins
+    # dict mapping module name to plugin flags for per-module plugins
     srcs = field(dict[typing.Any, PluginFlags]),
     # list[RunInfo] for global plugin tools
     global_tool_paths = field(list[RunInfo]),
-    # dict mapping source file to list[RunInfo] for per-module plugin tools
+    # dict mapping module name to list[RunInfo] for per-module plugin tools
     srcs_tool_paths = field(dict[typing.Any, list[RunInfo]]),
     # list[str] toolchain library names needed by plugins
     plugin_toolchain_deps = field(list[str]),
@@ -251,10 +251,10 @@ def compute_plugin_flags(ctx: AnalysisContext, link_style) -> PluginParams:
         plugin_toolchain_deps = plugin_toolchain_deps,
     )
 
-def plugin_params_srcs_as_cmd_args(params: PluginParams, srcfile: typing.Any) -> cmd_args:
-    """Get the plugin flags for a given source file."""
-    if srcfile in params.srcs:
-        return plugin_flags_as_cmd_args(params.srcs[srcfile])
+def plugin_params_srcs_as_cmd_args(params: PluginParams, module_name: typing.Any) -> cmd_args:
+    """Get the plugin flags for a given module name."""
+    if module_name in params.srcs:
+        return plugin_flags_as_cmd_args(params.srcs[module_name])
     else:
         return cmd_args()
 

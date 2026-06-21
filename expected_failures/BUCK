@@ -58,7 +58,7 @@ haskell_library(
     srcs = ["Lib.hs"],
     incremental = False,
     srcs_plugins = {
-        "Lib.hs": [":noop_plugin"],
+        "Lib": [":noop_plugin"],
     },
     deps = [":base"],
 )
