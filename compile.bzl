@@ -1589,8 +1589,8 @@ def _compile_incr(
             worker = arg.worker,
             allow_worker = arg.allow_worker,
             allow_cache_upload = arg.allow_cache_upload,
-            module_plugin_flags = plugin_params_srcs_as_cmd_args(arg.plugin_params, module.source),
-            module_plugin_tool_paths = arg.plugin_params.srcs_tool_paths.get(module.source),
+            module_plugin_flags = plugin_params_srcs_as_cmd_args(arg.plugin_params, module_name),
+            module_plugin_tool_paths = arg.plugin_params.srcs_tool_paths.get(module_name),
         )
 
 def compile_args_for_non_incr(
