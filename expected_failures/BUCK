@@ -52,12 +52,12 @@ ghc_plugin(
     deps = [":bad_dep_binary"],
 )
 
-# --- Error: srcs_plugins with incremental = False --------------------------
+# --- Error: per_module_plugins with incremental = False --------------------------
 haskell_library(
-    name = "err_srcs_plugins_non_incremental",
+    name = "err_per_module_plugins_non_incremental",
     srcs = ["Lib.hs"],
     incremental = False,
-    srcs_plugins = {
+    per_module_plugins = {
         "Lib": [":noop_plugin"],
     },
     deps = [":base"],
