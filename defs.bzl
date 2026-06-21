@@ -167,7 +167,7 @@ def _incremental_arg():
     return {
         "incremental": attrs.bool(default = True, doc = """
     Use module-level incremental build. Setting it to `False` is mutually
-    exclusive with `srcs_plugins`.
+    exclusive with `per_module_plugins`.
 """),
     }
 
@@ -187,9 +187,9 @@ def _plugins_arg():
     return {
         "plugins": attrs.list(attrs.dep(providers = [GhcPluginInfo]), default = [], doc = """
     A list of GHC compiler plugins to enable globally for all modules in this target.
-    Each entry must be a `ghc_plugin()` target. Mutually exclusive with `srcs_plugins`.
+    Each entry must be a `ghc_plugin()` target. Mutually exclusive with `per_module_plugins`.
 """),
-        "srcs_plugins": attrs.dict(attrs.string(), attrs.list(attrs.dep(providers = [GhcPluginInfo])), default = {}, doc = """
+        "per_module_plugins": attrs.dict(attrs.string(), attrs.list(attrs.dep(providers = [GhcPluginInfo])), default = {}, doc = """
     Per-module plugin configuration. Maps module names to lists of `ghc_plugin()` targets
     to enable for that specific module. Modules without an entry have no plugins enabled.
     Mutually exclusive with `plugins` and `incremental = False`.
@@ -624,7 +624,7 @@ ghc_plugin = rule(
         When a `haskell_library`, `haskell_binary`,
         `haskell_test`, or `haskell_ghci` target depends on a plugin via the `plugins`
         attribute, the plugin is enabled globally for all modules in the unit. The
-        `srcs_plugins` attribute instead enables plugins on a per-module basis.
+        `per_module_plugins` attribute instead enables plugins on a per-module basis.
 
         ## Example: global plugin
 
@@ -643,7 +643,7 @@ ghc_plugin = rule(
         )
         ```
 
-        ## Example: per-module plugin via srcs_plugins
+        ## Example: per-module plugin via per_module_plugins
 
         ```python
         ghc_plugin(
@@ -655,7 +655,7 @@ ghc_plugin = rule(
         haskell_library(
             name = "my_lib",
             srcs = ["A.hs", "B.hs"],
-            srcs_plugins = {
+            per_module_plugins = {
                 "A": [":my_plugin"],
             },
             deps = ["//tests:base"],

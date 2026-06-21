@@ -212,24 +212,24 @@ PluginParams = record(
     # unit-level plugin flags for global plugins
     unit = field(PluginFlags),
     # dict mapping module name to plugin flags for per-module plugins
-    srcs = field(dict[typing.Any, PluginFlags]),
+    per_module = field(dict[typing.Any, PluginFlags]),
     # list[RunInfo] for global plugin tools
     global_tool_paths = field(list[RunInfo]),
     # dict mapping module name to list[RunInfo] for per-module plugin tools
-    srcs_tool_paths = field(dict[typing.Any, list[RunInfo]]),
+    per_module_tool_paths = field(dict[typing.Any, list[RunInfo]]),
     # list[str] toolchain library names needed by plugins
     plugin_toolchain_deps = field(list[str]),
 )
 
 def compute_plugin_flags(ctx: AnalysisContext, link_style) -> PluginParams:
     """
-    Compute both unit-level and per-source plugin flags for a given link style.
+    Compute both unit-level and per-module plugin flags for a given link style.
     """
     unit = get_plugin_flags(ctx, link_style)
-    srcs = {}
-    srcs_plugin_modules = {}
+    per_module = {}
+    per_module_plugin_modules = {}
     global_tool_paths = []
-    srcs_tool_paths = {}
+    per_module_tool_paths = {}
     plugin_toolchain_deps = []
 
     for plugin_dep in getattr(ctx.attrs, "plugins", []):
@@ -238,8 +238,8 @@ def compute_plugin_flags(ctx: AnalysisContext, link_style) -> PluginParams:
             global_tool_paths.append(tool[RunInfo])
         plugin_toolchain_deps.extend(info.toolchain_deps)
 
-    if getattr(ctx.attrs, "srcs_plugins", None):
-        for src, plugin_list in ctx.attrs.srcs_plugins.items():
+    if getattr(ctx.attrs, "per_module_plugins", None):
+        for module_name, plugin_list in ctx.attrs.per_module_plugins.items():
             pkg_flags = {}
             mod_flags = []
             hidden = cmd_args()
@@ -255,26 +255,26 @@ def compute_plugin_flags(ctx: AnalysisContext, link_style) -> PluginParams:
                 plugin_toolchain_deps.extend(plugin_info.toolchain_deps)
                 pkg_flags[plugin_dep.label] = pkg_args
                 mod_flags.append(mod_args)
-            srcs[src] = PluginFlags(
+            per_module[module_name] = PluginFlags(
                 pkg_flags = pkg_flags,
                 mod_flags = mod_flags,
                 hidden = hidden,
             )
             if tools:
-                srcs_tool_paths[src] = tools
+                per_module_tool_paths[module_name] = tools
 
     return PluginParams(
         unit = unit,
-        srcs = srcs,
+        per_module = per_module,
         global_tool_paths = global_tool_paths,
-        srcs_tool_paths = srcs_tool_paths,
+        per_module_tool_paths = per_module_tool_paths,
         plugin_toolchain_deps = plugin_toolchain_deps,
     )
 
-def plugin_params_srcs_as_cmd_args(params: PluginParams, module_name: typing.Any) -> cmd_args:
+def plugin_params_per_module_as_cmd_args(params: PluginParams, module_name: typing.Any) -> cmd_args:
     """Get the plugin flags for a given module name."""
-    if module_name in params.srcs:
-        return plugin_flags_as_cmd_args(params.srcs[module_name])
+    if module_name in params.per_module:
+        return plugin_flags_as_cmd_args(params.per_module[module_name])
     else:
         return cmd_args()
 
@@ -289,14 +289,14 @@ def get_plugin_tool_paths(plugins: list[Dependency]) -> list[RunInfo]:
 
 def validate_plugins_attrs(ctx: AnalysisContext):
     """
-    Validate plugin attributes: `srcs_plugins` is not used with non-incremental builds.
+    Validate plugin attributes: `per_module_plugins` is not used with non-incremental builds.
     Produces an error if validation fails.
     """
-    srcs_plugins = getattr(ctx.attrs, "srcs_plugins", {})
+    per_module_plugins = getattr(ctx.attrs, "per_module_plugins", {})
     incremental = getattr(ctx.attrs, "incremental", True)
-    if srcs_plugins and not incremental:
+    if per_module_plugins and not incremental:
         fail(
-            "Target '{}' uses 'srcs_plugins' with 'incremental = False'. " +
+            "Target '{}' uses 'per_module_plugins' with 'incremental = False'. " +
             "Per-module plugins require incremental builds because non-incremental " +
             "mode (ghc --make) compiles all modules together and cannot apply " +
             "different plugin flags per module. Use 'plugins' for global plugin " +

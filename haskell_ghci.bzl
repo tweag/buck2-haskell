@@ -835,11 +835,11 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
     # Worker-compatibility is not checked yet.
     is_worker_execute = False
 
-    # Validate plugin attrs; srcs_plugins is not supported in GHCi.
-    srcs_plugins = getattr(ctx.attrs, "srcs_plugins", {})
-    if srcs_plugins:
+    # Validate plugin attrs; per_module_plugins is not supported in GHCi.
+    per_module_plugins = getattr(ctx.attrs, "per_module_plugins", {})
+    if per_module_plugins:
         fail(
-            "haskell_ghci '{}' does not support srcs_plugins. ".format(ctx.label) +
+            "haskell_ghci '{}' does not support per_module_plugins. ".format(ctx.label) +
             "Use the 'plugins' attribute for global plugin support instead.",
         )
     validate_plugins_attrs(ctx)
