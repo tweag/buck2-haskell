@@ -137,7 +137,7 @@ haskell_library(
     name = "lib_srcs_real_plugin",
     srcs = ["PluginLib.hs"],
     srcs_plugins = {
-        "PluginLib.hs": [":real_plugin"],
+        "PluginLib": [":real_plugin"],
     },
     deps = ["//tests:base"],
     visibility = ["//tests/..."],
@@ -212,7 +212,7 @@ haskell_binary(
     srcs = ["PluginMain.hs"],
     link_style = "static",
     srcs_plugins = {
-        "PluginMain.hs": [":real_plugin"],
+        "Main": [":real_plugin"],
     },
     deps = ["//tests:base"],
     allow_worker = False,
@@ -223,7 +223,7 @@ haskell_binary(
     srcs = ["PluginMain.hs"],
     link_style = "shared",
     srcs_plugins = {
-        "PluginMain.hs": [":real_plugin"],
+        "Main": [":real_plugin"],
     },
     deps = ["//tests:base"],
     allow_worker = False,
@@ -306,7 +306,7 @@ haskell_test(
     srcs = ["PluginMain.hs"],
     link_style = "static",
     srcs_plugins = {
-        "PluginMain.hs": [":real_plugin"],
+        "Main": [":real_plugin"],
     },
     deps = ["//tests:base"],
     allow_worker = False,
@@ -322,7 +322,7 @@ haskell_test(
     ],
     link_style = "shared",
     srcs_plugins = {
-        "PluginMain.hs": [":real_plugin"],
+        "Main": [":real_plugin"],
     },
     deps = ["//tests:base"],
     _worker = "toolchains//:persistent_worker",
@@ -338,7 +338,7 @@ haskell_test(
     ],
     link_style = "shared",
     srcs_plugins = {
-        "PluginMain.hs": [":real_plugin"],
+        "Main": [":real_plugin"],
     },
     deps = ["//tests:base"],
     allow_worker = False,
@@ -449,7 +449,7 @@ ghc_plugin(
 #     srcs = ["InspectionMain.hs"],
 #     link_style = "static",
 #     srcs_plugins = {
-#         "InspectionMain.hs": [":inspection_plugin"],
+#         "Main": [":inspection_plugin"],
 #     },
 #     deps = [
 #         "//tests:base",
@@ -463,7 +463,7 @@ ghc_plugin(
 #     srcs = ["InspectionMain.hs"],
 #     link_style = "shared",
 #     srcs_plugins = {
-#         "InspectionMain.hs": [":inspection_plugin"],
+#         "Main": [":inspection_plugin"],
 #     },
 #     deps = [
 #         "//tests:base",
