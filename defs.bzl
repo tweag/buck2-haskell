@@ -189,8 +189,8 @@ def _plugins_arg():
     A list of GHC compiler plugins to enable globally for all modules in this target.
     Each entry must be a `ghc_plugin()` target. Mutually exclusive with `srcs_plugins`.
 """),
-        "srcs_plugins": attrs.dict(attrs.source(), attrs.list(attrs.dep(providers = [GhcPluginInfo])), default = {}, doc = """
-    Per-module plugin configuration. Maps source files to lists of `ghc_plugin()` targets
+        "srcs_plugins": attrs.dict(attrs.string(), attrs.list(attrs.dep(providers = [GhcPluginInfo])), default = {}, doc = """
+    Per-module plugin configuration. Maps module names to lists of `ghc_plugin()` targets
     to enable for that specific module. Modules without an entry have no plugins enabled.
     Mutually exclusive with `plugins` and `incremental = False`.
 """),
@@ -657,7 +657,7 @@ ghc_plugin = rule(
             name = "my_lib",
             srcs = ["A.hs", "B.hs"],
             srcs_plugins = {
-                "A.hs": [":my_plugin"],
+                "A": [":my_plugin"],
             },
             deps = ["//tests:base"],
         )
