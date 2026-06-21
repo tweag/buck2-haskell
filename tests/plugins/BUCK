@@ -124,13 +124,13 @@ haskell_test(
 )
 
 # =============================================================================
-# haskell_library targets with real plugin (srcs_plugins / per-module)
+# haskell_library targets with real plugin (per_module_plugins / per-module)
 # =============================================================================
 
 haskell_library(
-    name = "lib_srcs_real_plugin",
+    name = "lib_per_module_real_plugin",
     srcs = ["PluginLib.hs"],
-    srcs_plugins = {
+    per_module_plugins = {
         "PluginLib": [":real_plugin"],
     },
     deps = ["//tests:base"],
@@ -138,11 +138,11 @@ haskell_library(
 )
 
 haskell_test(
-    name = "ht_lib_srcs_real_plugin",
+    name = "ht_lib_per_module_real_plugin",
     srcs = ["TestPluginLib.hs"],
     deps = [
         "//tests:base",
-        ":lib_srcs_real_plugin",
+        ":lib_per_module_real_plugin",
     ],
 )
 
@@ -192,24 +192,24 @@ haskell_binary(
 )
 
 # =============================================================================
-# haskell_binary targets with real plugin via srcs_plugins — static + shared
+# haskell_binary targets with real plugin via per_module_plugins — static + shared
 # =============================================================================
 
 haskell_binary(
-    name = "bin_srcs_real_plugin_static",
+    name = "bin_per_module_real_plugin_static",
     srcs = ["PluginMain.hs"],
     link_style = "static",
-    srcs_plugins = {
+    per_module_plugins = {
         "Main": [":real_plugin"],
     },
     deps = ["//tests:base"],
 )
 
 haskell_binary(
-    name = "bin_srcs_real_plugin_shared",
+    name = "bin_per_module_real_plugin_shared",
     srcs = ["PluginMain.hs"],
     link_style = "shared",
-    srcs_plugins = {
+    per_module_plugins = {
         "Main": [":real_plugin"],
     },
     deps = ["//tests:base"],
@@ -246,13 +246,13 @@ sh_test(
 )
 
 sh_test(
-    name = "test_bin_srcs_real_plugin_static",
-    test = ":bin_srcs_real_plugin_static",
+    name = "test_bin_per_module_real_plugin_static",
+    test = ":bin_per_module_real_plugin_static",
 )
 
 sh_test(
-    name = "test_bin_srcs_real_plugin_shared",
-    test = ":bin_srcs_real_plugin_shared",
+    name = "test_bin_per_module_real_plugin_shared",
+    test = ":bin_per_module_real_plugin_shared",
 )
 
 sh_test(
@@ -281,28 +281,28 @@ haskell_test(
 )
 
 # =============================================================================
-# haskell_test targets with real plugin — srcs_plugins
+# haskell_test targets with real plugin — per_module_plugins
 # =============================================================================
 
 haskell_test(
-    name = "ht_srcs_real_plugin_static",
+    name = "ht_per_module_real_plugin_static",
     srcs = ["PluginMain.hs"],
     link_style = "static",
-    srcs_plugins = {
+    per_module_plugins = {
         "Main": [":real_plugin"],
     },
     deps = ["//tests:base"],
 )
 
 haskell_test(
-    name = "ht_srcs_real_plugin_shared",
+    name = "ht_per_module_real_plugin_shared",
     src_main = "PluginMain.hs",
     srcs = [
         "PluginMain.hs",
         "PluginMain2.hs",
     ],
     link_style = "shared",
-    srcs_plugins = {
+    per_module_plugins = {
         "Main": [":real_plugin"],
     },
     deps = ["//tests:base"],
@@ -403,13 +403,13 @@ haskell_test(
     ],
 )
 
-# --- srcs_plugins variants (per-module) ---
+# --- per_module_plugins variants (per-module) ---
 
 haskell_test(
-    name = "ht_srcs_inspection_static",
+    name = "ht_per_module_inspection_static",
     srcs = ["InspectionMain.hs"],
     link_style = "static",
-    srcs_plugins = {
+    per_module_plugins = {
         "Main": [":inspection_plugin"],
     },
     deps = [
@@ -419,10 +419,10 @@ haskell_test(
 )
 
 haskell_test(
-    name = "ht_srcs_inspection_shared",
+    name = "ht_per_module_inspection_shared",
     srcs = ["InspectionMain.hs"],
     link_style = "shared",
-    srcs_plugins = {
+    per_module_plugins = {
         "Main": [":inspection_plugin"],
     },
     deps = [

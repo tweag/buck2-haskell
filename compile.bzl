@@ -50,7 +50,7 @@ load(
     "compute_plugin_flags",
     "mod_flags_as_cmd_args",
     "pkg_flags_as_cmd_args",
-    "plugin_params_srcs_as_cmd_args",
+    "plugin_params_per_module_as_cmd_args",
     "plugin_flags_as_cmd_args",
 )
 load(
@@ -702,16 +702,16 @@ def target_metadata(
         _plugin_flags = compute_plugin_flags(ctx, link_style)
         # combine pkg_flags dictionaries
         all_pkg_flags = dict(_plugin_flags.unit.pkg_flags)
-        for src_plugin_flags in _plugin_flags.srcs.values():
-            all_pkg_flags.update(src_plugin_flags.pkg_flags)
+        for per_module_plugin_flags in _plugin_flags.per_module.values():
+            all_pkg_flags.update(per_module_plugin_flags.pkg_flags)
         # convert combined pkg_flags to cmd_args
-        srcs_pkgs_args = cmd_args()
+        per_module_pkgs_args = cmd_args()
         for args in all_pkg_flags.values():
-            srcs_pkgs_args.add(args)
+            per_module_pkgs_args.add(args)
         # Note how we skip the hidden inputs of the plugins, they should be
         # needed only by the compile step.
         worker_plugin_flags = cmd_args(
-            srcs_pkgs_args,
+            per_module_pkgs_args,
             mod_flags_as_cmd_args(_plugin_flags.unit.mod_flags)
         )
     else:
@@ -1466,7 +1466,7 @@ def _compile_module(
             "packagedb": packagedb_tag,
         }
 
-    # Add per-module plugin flags (from srcs_plugins).
+    # Add per-module plugin flags (from per_module_plugins).
     # These are module-specific flags that we add after the unit-level compiler_flags
     # in common_args.oneshot_args_for_file. In practice, this order should not make
     # much difference to compilation.
@@ -1474,7 +1474,7 @@ def _compile_module(
         compile_args_for_file.add(module_plugin_flags)
 
     # Add per-module plugin tool paths as --bin-exe= args so only the modules
-    # that use srcs_plugins depend on the corresponding tool executables.
+    # that use per_module_plugins depend on the corresponding tool executables.
     if module_plugin_tool_paths != None:
         for tool_run_info in module_plugin_tool_paths:
             wrapper_args_for_file.add(cmd_args(tool_run_info, format = "--bin-exe={}"))
@@ -1589,8 +1589,8 @@ def _compile_incr(
             worker = arg.worker,
             allow_worker = arg.allow_worker,
             allow_cache_upload = arg.allow_cache_upload,
-            module_plugin_flags = plugin_params_srcs_as_cmd_args(arg.plugin_params, module_name),
-            module_plugin_tool_paths = arg.plugin_params.srcs_tool_paths.get(module_name),
+            module_plugin_flags = plugin_params_per_module_as_cmd_args(arg.plugin_params, module_name),
+            module_plugin_tool_paths = arg.plugin_params.per_module_tool_paths.get(module_name),
         )
 
 def compile_args_for_non_incr(
