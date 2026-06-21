@@ -29,15 +29,15 @@ provided.
 
 Without further configuration, the plugin is enabled globally for all the
 modules in the given unit. It is possible, though, to instead enable the plugin
-per-module by using an attribute `srcs_plugins`, which analogously to
+per-module by using an attribute `per_module_plugins`, which analogously to
 `src_deps`, allows to specify which plugins to enable for each module with an
-entry in `srcs_plugins`. Modules without an entry in this dictionary don't have
+entry in `per_module_plugins`. Modules without an entry in this dictionary don't have
 the plugin enabled.
 
 ### Validations
 
-Whenever the `srcs_plugins` attribute is specified on a rule:
-* Likewise, an error should be produced if `srcs_plugins` is used and the build
+Whenever the `per_module_plugins` attribute is specified on a rule:
+* Likewise, an error should be produced if `per_module_plugins` is used and the build
   mode is non-incremental, where GHC does not provide a way to specify plugins
   per-module.
 
@@ -59,12 +59,12 @@ When a unit or module depends on a target produced with `ghc_plugin` rule:
 ### Testing notes
 
 There are tests illustrating use of each of the combinations of `plugin` and
-`srcs_plugins` together with the `tools` attribute, with `haskell_library`,
+`per_module_plugins` together with the `tools` attribute, with `haskell_library`,
 `haskell_binary`, `haskell_test`, and `haskell_ghci`, and with both
 link styles `static` and `shared`, and with both build types `release` and
 `debug`.
 
-Moreover, there should be a tests rehearsing the validations of `srcs_plugins`
+Moreover, there should be a tests rehearsing the validations of `per_module_plugins`
 and the `ghc_plugin` rule.
 
 Finally, there should be a test of producing documentation with haddock for
@@ -84,7 +84,7 @@ moment.
 The documentation of the `ghc_plugin` rule describes how plugins are supported
 and provides three configuration examples.
 One of them illustrates the use of the `plugin` attribute. A second example
-illustrates the use of the `srcs_plugins` attribute. A third example
+illustrates the use of the `per_module_plugins` attribute. A third example
 illustrates the use of the `tools` attribute.
 
 All three examples appear as tests in `buck2-haskell/tests/plugins`.

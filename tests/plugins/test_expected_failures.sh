@@ -46,9 +46,9 @@ expect_failure \
     "buck2-haskell//expected_failures:err_bad_deps" \
     "HaskellLibraryProvider"
 
-# 2. srcs_plugins with non-incremental builds
+# 2. per_module_plugins with non-incremental builds
 expect_failure \
-    "buck2-haskell//expected_failures:err_srcs_plugins_non_incremental" \
+    "buck2-haskell//expected_failures:err_per_module_plugins_non_incremental" \
     "Per-module plugins require incremental"
 
 echo

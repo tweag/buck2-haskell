@@ -1,7 +1,7 @@
 -- | Test that the plugin does not run on this file.
 --
 -- This test is meant to check that when modules aren't placed in
--- srcs_plugins, the per-module plugins aren't accidentally applied to them.
+-- per_module_plugins, the per-module plugins aren't accidentally applied to them.
 --
 -- The string @"plugin"@ is a literal in the source; if the plugin ran
 -- correctly with option @"plugin_ok"@, it will have been replaced with

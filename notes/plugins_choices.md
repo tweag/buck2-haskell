@@ -42,7 +42,7 @@ context to compute flags for all global plugins, and (2) with a specific
 `plugin_info` to compute flags for a single plugin.
 
 **Reason:** Global plugins (`plugins` attr) compute all plugin flags at once
-for the unit level. Per-module plugins (`srcs_plugins` attr) need flags
+for the unit level. Per-module plugins (`per_module_plugins` attr) need flags
 computed for each source file's plugin list individually. A single function
 with a mode parameter avoids code duplication while serving both use cases.
 
@@ -58,25 +58,25 @@ add module-specific plugin flags.
 pattern makes the implementation consistent and leverages the existing
 infrastructure in `_compile_module`.
 
-### 5. Mutual exclusion of `plugins` and `srcs_plugins`
+### 5. Mutual exclusion of `plugins` and `per_module_plugins`
 
 **Decision:** Validation is performed at the beginning of each rule
 implementation (`haskell_library_impl`, `_haskell_executable`). If both
 attributes are non-empty, a `fail()` is called with a clear error message.
 
-**Reason:** Per the spec, using both `plugins` (global) and `srcs_plugins`
+**Reason:** Per the spec, using both `plugins` (global) and `per_module_plugins`
 (per-module) is an error. Early validation prevents this confusion. The check
 uses `getattr` with defaults to safely handle rules that may not have both
 attributes.
 
-### 6. Mutual exclusion of `srcs_plugins` and `incremental = False`
+### 6. Mutual exclusion of `per_module_plugins` and `incremental = False`
 
-**Decision:** Validation also checks that `srcs_plugins` is not used together
+**Decision:** Validation also checks that `per_module_plugins` is not used together
 with  non-incremental mode, where `fail()` is called with an informative error
 message.
 
 **Reason:** Non-incremental mode invokes GHC once for all modules. There is no
-mechanism to apply different flags per module, so the `srcs_plugins` attribute is
+mechanism to apply different flags per module, so the `per_module_plugins` attribute is
 meaningful only in incremental mode.
 
 ### 7. `GhcPluginInfo` provider design
@@ -101,7 +101,7 @@ dynamically by the compilation flow.
 ### 8. Expected-failure tests in a self-contained package
 
 **Decision:** Tests for error conditions (mutual exclusion, bad deps,
-srcs_plugins + non-incremental, ghci, haddock) are placed in a separate
+per_module_plugins + non-incremental, ghci, haddock) are placed in a separate
 `expected_failures/` package at the repo root, outside `tests/`. A shell
 script (`tests/plugins/test_expected_failures.sh`) invokes `buck build` on
 each target, verifies the build fails, and checks that the error message
@@ -129,14 +129,14 @@ chosen to be specific enough to avoid false positives:
 - `"GHC binary path"` — actual ghci failure message
 - `"already used by another action"` — actual haddock failure message
 
-### 9. Plugin tools scoped per-module for `srcs_plugins`
+### 9. Plugin tools scoped per-module for `per_module_plugins`
 
 **Decision:** Plugin tools (from `ghc_plugin.tools`) are split into two scopes:
 - **Global plugin tools** (from `plugins` attr) are injected into
   `extra_tool_paths` and become available to all modules via `--bin-exe=` in
   `unit_buck2_args()`.
-- **Per-module plugin tools** (from `srcs_plugins` attr) are computed in
-  `compute_plugin_flags()` as `srcs_tool_paths`, threaded through
+- **Per-module plugin tools** (from `per_module_plugins` attr) are computed in
+  `compute_plugin_flags()` as `per_module_tool_paths`, threaded through
   `_DynamicDoCompileOptions.srcs_plugin_tool_paths`, and added as `--bin-exe=`
   args only in `_compile_module()` for the specific module that uses the plugin.
 
@@ -166,10 +166,10 @@ in the command line. The `OrderPlugin` test enforces this: it verifies that
 `plugin_opts = ["alpha", "beta", "gamma"]` arrive in exactly that order, which
 would fail if `compiler_flags` were interleaved.
 
-### 11. `srcs_plugins` requires incremental builds
+### 11. `per_module_plugins` requires incremental builds
 
 **Decision:** `validate_plugins_attrs()` in `ghc_plugin.bzl` now also checks
-that `srcs_plugins` is not used with `incremental = False`, raising a clear
+that `per_module_plugins` is not used with `incremental = False`, raising a clear
 error message.
 
 **Reason:** In non-incremental mode, GHC receives all source files in a single
@@ -179,13 +179,13 @@ all modules (which violates the per-module intent), we fail early with an
 explanatory message guiding the user to either use global `plugins` or enable
 incremental builds.
 
-### 12. `srcs_plugins` is not supported in `haskell_ghci`
+### 12. `per_module_plugins` is not supported in `haskell_ghci`
 
-**Decision:** The `srcs_plugins` attribute produces an error in `haskell_ghci`
+**Decision:** The `per_module_plugins` attribute produces an error in `haskell_ghci`
 if set.
 
 **Reason:** `haskell_ghci` does not compile or load modules separately, so
-the `srcs_plugins` attribute is meaningless there.
+the `per_module_plugins` attribute is meaningless there.
 
 ### 13. Toolchain library support for `ghc_plugin` deps
 
@@ -257,25 +257,25 @@ The test suite in `buck2-haskell/tests/plugins/` covers:
 | Rule type | Plugin | Mode | Link style | Target name |
 |---|---|---|---|---|
 | `haskell_library` | real (tools+opts) | global | any | `lib_real_plugin` |
-| `haskell_library` | real (tools+opts) | srcs_plugins | any | `lib_srcs_real_plugin` |
+| `haskell_library` | real (tools+opts) | per_module_plugins | any | `lib_per_module_real_plugin` |
 | `haskell_library` | order (flag ordering) | global | any | `lib_order_plugin` |
 | `haskell_library` consumer | real (tools+opts) | — | static | `ht_lib_real_plugin` |
-| `haskell_library` consumer | real (tools+opts) | — | static | `ht_lib_srcs_real_plugin` |
+| `haskell_library` consumer | real (tools+opts) | — | static | `ht_lib_per_module_real_plugin` |
 | `haskell_library` consumer | order (flag ordering) | — | static | `ht_lib_order_plugin` |
 | `haskell_binary` | real (tools+opts) | global | static | `bin_real_plugin_static` |
 | `haskell_binary` | real (tools+opts) | global | shared | `bin_real_plugin_shared` |
-| `haskell_binary` | real (tools+opts) | srcs_plugins | static | `bin_srcs_real_plugin_static` |
-| `haskell_binary` | real (tools+opts) | srcs_plugins | shared | `bin_srcs_real_plugin_shared` |
+| `haskell_binary` | real (tools+opts) | per_module_plugins | static | `bin_per_module_real_plugin_static` |
+| `haskell_binary` | real (tools+opts) | per_module_plugins | shared | `bin_per_module_real_plugin_shared` |
 | `haskell_binary` | order (flag ordering) | global | static | `bin_order_plugin` |
 | `haskell_test` | real (tools+opts) | global | static | `ht_real_plugin_static` |
 | `haskell_test` | real (tools+opts) | global | shared | `ht_real_plugin_shared` |
-| `haskell_test` | real (tools+opts) | srcs_plugins | static | `ht_srcs_real_plugin_static` |
-| `haskell_test` | real (tools+opts) | srcs_plugins | shared | `ht_srcs_real_plugin_shared` |
+| `haskell_test` | real (tools+opts) | per_module_plugins | static | `ht_per_module_real_plugin_static` |
+| `haskell_test` | real (tools+opts) | per_module_plugins | shared | `ht_per_module_real_plugin_shared` |
 | `haskell_test` | order (flag ordering) | global | static | `ht_order_plugin` |
 | `haskell_test` | inspection-testing (toolchain lib) | global | static | `ht_inspection_static` |
 | `haskell_test` | inspection-testing (toolchain lib) | global | shared | `ht_inspection_shared` |
-| `haskell_test` | inspection-testing (toolchain lib) | srcs_plugins | static | `ht_srcs_inspection_static` |
-| `haskell_test` | inspection-testing (toolchain lib) | srcs_plugins | shared | `ht_srcs_inspection_shared` |
+| `haskell_test` | inspection-testing (toolchain lib) | per_module_plugins | static | `ht_per_module_inspection_static` |
+| `haskell_test` | inspection-testing (toolchain lib) | per_module_plugins | shared | `ht_per_module_inspection_shared` |
 | `haskell_ghci` | real (tools+opts) | global | — | `ghci_real_plugin` |
 | `haskell_ghci` | order (flag ordering) | global | — | `ghci_order_plugin` |
 | `haskell_haddock` | real (tools+opts) | — | — | `haddock_plugin` |
@@ -305,5 +305,5 @@ emitted so GHC exposes the package for plugin loading.
 | Error condition | Target name | Expected error substring |
 |---|---|---|
 | `ghc_plugin.deps` is not a haskell_library or toolchain library | `err_bad_deps` | `"HaskellLibraryProvider or HaskellToolchainLibrary"` |
-| `srcs_plugins` + `incremental = False` | `err_srcs_plugins_non_incremental` | `"Per-module plugins require incremental"` |
+| `per_module_plugins` + `incremental = False` | `err_per_module_plugins_non_incremental` | `"Per-module plugins require incremental"` |
 
