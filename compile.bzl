@@ -1372,8 +1372,7 @@ def _compile_module(
         allow_worker: bool,
         allow_cache_upload: bool,
         module_plugin_flags: cmd_args | None = None,
-        module_plugin_tool_paths: typing.Any = None,
-        per_module_plugin_flags_json: Artifact | None = None) -> CompiledModuleTSet:
+        module_plugin_tool_paths: typing.Any = None) -> CompiledModuleTSet:
     is_worker_execute = check_is_worker_execute(worker, allow_worker, haskell_toolchain.use_worker)
 
     abi_tag = actions.artifact_tag()
@@ -1442,8 +1441,6 @@ def _compile_module(
             dependency_modules = dependency_modules,
             md_file = md_file,
         ))
-        if per_module_plugin_flags_json != None:
-            wrapper_args_for_file.add(cmd_args(per_module_plugin_flags_json, prepend = "--ghc-per-module-plugins-args-file"))
 
         # The make worker does not support stub dirs at the moment, so we create it directly.
         # Since the entire module graph's flags are supposed to be fully initialized in the metadata step, we can't pass
@@ -1588,8 +1585,7 @@ def _compile_incr(
         package_deps: dict[str, dict[str, list[str]]],  # `dict[modname, dict[pkgname, list[modname]]`
         graph_set: dict[str, ModGraphTSet],
         direct_deps_by_name: dict[str, _DirectDep],
-        outputs: dict[Artifact, OutputArtifact],
-        per_module_plugin_flags_json: Artifact | None = None) -> None:
+        outputs: dict[Artifact, OutputArtifact]) -> None:
     is_worker_execute = check_is_worker_execute(arg.worker, arg.allow_worker, arg.haskell_toolchain.use_worker)
 
     for module_name in post_order_traversal(graph):
@@ -1620,7 +1616,6 @@ def _compile_incr(
             allow_cache_upload = arg.allow_cache_upload,
             module_plugin_flags = plugin_params_per_module_as_cmd_args(arg.plugin_params, module_name),
             module_plugin_tool_paths = arg.plugin_params.per_module_tool_paths.get(module_name),
-            per_module_plugin_flags_json = per_module_plugin_flags_json,
         )
 
 def compile_args_for_non_incr(
@@ -1926,21 +1921,6 @@ def _dynamic_do_compile_impl(
     for m in module_graph.keys():
         xs = _create_graph_set(m)
 
-    # Create per-module plugin flags JSON for worker compile steps.
-    # In non-worker mode these flags are passed as GHC args directly; in worker mode
-    # the worker reads them from a JSON file and sets DynFlags per module.
-    is_worker_execute = check_is_worker_execute(arg.worker, arg.allow_worker, arg.haskell_toolchain.use_worker)
-    per_module_mod_flags = {
-        mod: pf.mod_flags
-        for mod, pf in arg.plugin_params.per_module.items()
-    }
-    per_module_plugin_flags_json = None
-    if is_worker_execute and per_module_mod_flags:
-        per_module_plugin_flags_json = actions.write_json(
-            "per-module-plugin-flags-{}.json".format(arg.artifact_suffix),
-            per_module_mod_flags,
-        )
-
     if incremental:
         _compile_incr(
             actions,
@@ -1954,7 +1934,6 @@ def _dynamic_do_compile_impl(
             graph_set,
             direct_deps_by_name,
             outputs,
-            per_module_plugin_flags_json = per_module_plugin_flags_json,
         )
     else:
         _compile_non_incr(
