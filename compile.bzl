@@ -1069,6 +1069,10 @@ def _common_compile_module_args(
 
     # These arguments are used in both modes and can be passed in an argsfile.
     args_for_file = cmd_args([], hidden = non_haskell_sources)
+    if is_worker_execute:
+        # In worker mode, unit plugin interface files are not included in oneshot_args_for_file
+        # (which is skipped in worker mode), so we include their hidden inputs here.
+        args_for_file.add(cmd_args([], hidden = arg.plugin_params.unit.hidden))
 
     # These arguments are only for oneshot mode, as opposed to the worker's make mode.
     oneshot_args_for_file = unit_ghc_args(actions, unit_params)
@@ -1342,8 +1346,7 @@ def _compile_module(
         worker: None | WorkerInfo,
         allow_worker: bool,
         allow_cache_upload: bool,
-        module_plugin_flags: cmd_args | None = None,
-        module_plugin_tool_paths: typing.Any = None) -> CompiledModuleTSet:
+        plugin_params: PluginParams) -> CompiledModuleTSet:
     is_worker_execute = check_is_worker_execute(worker, allow_worker, haskell_toolchain.use_worker)
 
     abi_tag = actions.artifact_tag()
@@ -1466,12 +1469,13 @@ def _compile_module(
     # These are module-specific flags that we add after the unit-level compiler_flags
     # in common_args.oneshot_args_for_file. In practice, this order should not make
     # much difference to compilation.
-    if module_plugin_flags != None:
-        compile_args_for_file.add(module_plugin_flags)
+    module_plugin_flags = plugin_params_per_module_as_cmd_args(plugin_params, module_name)
+    compile_args_for_file.add(module_plugin_flags)
 
     # Add per-module plugin tool paths as --bin-exe= args so only the modules
     # that use per_module_plugins depend on the corresponding tool executables.
-    if module_plugin_tool_paths != None:
+    module_plugin_tool_paths = plugin_params.per_module_tool_paths.get(module_name)
+    if module_plugin_tool_paths:
         for tool_run_info in module_plugin_tool_paths:
             wrapper_args_for_file.add(cmd_args(tool_run_info, format = "--bin-exe={}"))
 
@@ -1557,7 +1561,6 @@ def _compile_incr(
         graph_set: dict[str, ModGraphTSet],
         direct_deps_by_name: dict[str, _DirectDep],
         outputs: dict[Artifact, OutputArtifact]) -> None:
-    is_worker_execute = check_is_worker_execute(arg.worker, arg.allow_worker, arg.haskell_toolchain.use_worker)
 
     for module_name in post_order_traversal(graph):
         module = _get_module_from_map(mapped_modules, module_name)
@@ -1585,8 +1588,7 @@ def _compile_incr(
             worker = arg.worker,
             allow_worker = arg.allow_worker,
             allow_cache_upload = arg.allow_cache_upload,
-            module_plugin_flags = plugin_params_per_module_as_cmd_args(arg.plugin_params, module_name),
-            module_plugin_tool_paths = arg.plugin_params.per_module_tool_paths.get(module_name),
+            plugin_params = arg.plugin_params,
         )
 
 def compile_args_for_non_incr(
