@@ -463,6 +463,9 @@ MetadataParams = record(
     allow_cache_upload = field(bool),
     label = field(Label | None),
     incremental = field(bool),
+    # JSON file mapping module names to lists of per-module GHC mod_flags (e.g. -fplugin=...).
+    # Passed to the build-plan step and to generate_target_metadata.py.
+    per_module_flags_json = field(Artifact | None, default = None),
 )
 
 def _validate_srcs_batch(
@@ -606,6 +609,8 @@ def _dynamic_target_metadata_impl(
         if munit.is_binary:
             bp_args.add("--unit-is-binary")
         bp_args.add(cmd_args(ghc_args_file, prepend = "--ghc-args", hidden = [build_plan.as_output(), makefile.as_output()]))
+        if arg.per_module_flags_json:
+            bp_args.add("--per-module-flags-json-file", arg.per_module_flags_json)
 
         actions.run(
             bp_args,
@@ -619,6 +624,9 @@ def _dynamic_target_metadata_impl(
     else:
         # We won't need to look at the ghc argsfile later, but the user might!
         md_args.add("--use-ghc-args-file-at", actions.declare_output("ghc-args").as_output())
+
+    if arg.per_module_flags_json:
+        md_args.add("--per-module-flags-json-file", arg.per_module_flags_json)
 
     # Ensure that all src validations have succeeded (if any) before we attempt
     # to build metadata.
@@ -710,8 +718,22 @@ def target_metadata(
         # Note how we skip the hidden inputs of the plugins, they should be
         # needed only by the compile step.
         worker_plugin_flags = cmd_args(per_module_pkgs_args, _plugin_flags.unit.mod_flags)
+        # Create a JSON file mapping module names to their per-module GHC mod_flags
+        # (e.g. -fplugin=..., -fplugin-opt=...) for the worker build-plan step.
+        _per_module_plugin_flags = {
+            module_name: plugin_flags.mod_flags
+            for module_name, plugin_flags in _plugin_flags.per_module.items()
+        }
+        if _per_module_plugin_flags:
+            per_module_flags_json = ctx.actions.write_json(
+                "metadata_per_module_flags_{}{}{}.json".format(ctx.label.name, link_suffix, prof_suffix),
+                _per_module_plugin_flags,
+            )
+        else:
+            per_module_flags_json = None
     else:
         worker_plugin_flags = None
+        per_module_flags_json = None
 
     ctx.actions.dynamic_output_new(_dynamic_target_metadata(
         pkg_deps = haskell_toolchain.packages.dynamic if haskell_toolchain.packages else None,
@@ -748,6 +770,7 @@ def target_metadata(
             allow_cache_upload = ctx.attrs.allow_cache_upload,
             label = ctx.label,
             incremental = ctx.attrs.incremental,
+            per_module_flags_json = per_module_flags_json,
         ),
     ))
 
