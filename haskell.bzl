@@ -102,7 +102,9 @@ load(
     "DynamicHaskellToolchainPackageDbInfo",
     "HaskellToolchainInfo",
     "HaskellToolchainLibrary",
+    "HaskellToolchainPackage",
     "HaskellToolchainPackageDbTSet",
+    "augment_toolchain_package_db",
 )
 load(
     ":util.bzl",
@@ -195,7 +197,62 @@ _get_toolchain_haskell_package_id = dynamic_actions(
     },
 )
 
+def haskell_toolchain_library_from_package_db_impl(ctx: AnalysisContext):
+    """Expose a Haskell package from a package db provided as an attribute.
+
+    Unlike `haskell_toolchain_library`, which resolves its package from the
+    toolchain-wide package db (populated by the toolchain, e.g. from nix), this
+    rule takes a package db directory directly via the `package_db` attribute.
+    This is useful to expose packages from a locally built GHC's global package
+    db or a cabal store db (see the `impure_binary` ghc/ghc-pkg toolchain)
+    without going through nix.
+
+    `package_db` is an *impure* path, resolved relative to the project root at
+    build time (the same convention as `impure_binary`'s `binary_path`), so it
+    may point outside the enclosing cell. It is therefore not a tracked source
+    artifact.
+    """
+    haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
+    package_db_dir = ctx.attrs.package_db
+    pkgname = ctx.attrs.name
+
+    md_file = ctx.actions.declare_output(ctx.label.name + ".md.json")
+    ctx.actions.run(
+        cmd_args(
+            ctx.attrs._generate_toolchain_lib_metadata[RunInfo],
+            "--ghc-pkg",
+            haskell_toolchain.packager,
+            "--package-name",
+            pkgname,
+            "--package-dir",
+            package_db_dir,
+            "--output",
+            md_file.as_output(),
+        ),
+        category = "haskell_toolchain_library_metadata",
+        identifier = pkgname,
+        allow_cache_upload = True,
+    )
+
+    dynamic = ctx.actions.dynamic_output_new(
+        _get_toolchain_haskell_package_id(md_file = md_file),
+    )
+
+    sub_targets = {"metadata": [DefaultInfo(default_output = md_file)]}
+    return [
+        DefaultInfo(sub_targets = sub_targets),
+        HaskellToolchainLibrary(
+            name = pkgname,
+            dynamic = dynamic,
+            package_db_path = package_db_dir,
+        ),
+    ]
+
 def haskell_toolchain_library_impl(ctx: AnalysisContext):
+    package_db_dir = ctx.attrs.package_db
+    if package_db_dir:
+        return haskell_toolchain_library_from_package_db_impl(ctx)
+
     md_file = ctx.actions.declare_output(ctx.label.name + ".md.json")
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
     pkg_deps = haskell_toolchain.packages.dynamic if haskell_toolchain.packages else None
@@ -657,6 +714,11 @@ def _dynamic_link_shared_impl(
 
     libs = actions.tset(HaskellLibraryInfoTSet, children = arg.direct_deps_info)
     all_deps = libs.reduce("packages")
+    toolchain_package_db = augment_toolchain_package_db(
+        actions,
+        toolchain_package_db,
+        arg.toolchain_libs_full + libs.reduce("toolchain_packages"),
+    )
     toolchain_package_db_tset = actions.tset(
         HaskellToolchainPackageDbTSet,
         children = [toolchain_package_db[name] for name in (arg.toolchain_libs + all_deps) if name in toolchain_package_db],
@@ -1420,6 +1482,13 @@ def _dynamic_link_binary_impl(
     all_toolchain_libs0.extend([p.name for p in link_group_tset.reduce("toolchain_packages")])
     all_toolchain_libs = dedupe_by_value(all_toolchain_libs0)
 
+    toolchain_package_db = augment_toolchain_package_db(
+        actions,
+        toolchain_package_db,
+        [dep[HaskellToolchainLibrary] for dep in arg.deps if HaskellToolchainLibrary in dep] +
+        arg.haskell_library_tset.reduce("toolchain_packages") +
+        link_group_tset.reduce("toolchain_packages"),
+    )
     toolchain_package_db_tset = actions.tset(
         HaskellToolchainPackageDbTSet,
         children = [toolchain_package_db[name] for name in all_toolchain_libs if name in toolchain_package_db],
@@ -1498,6 +1567,8 @@ def _dynamic_link_binary_impl(
 
         unnamed_packages = 0
         for x in toolchain_package_db_tset.traverse():
+            if x.path == None:
+                continue
             if x.name:
                 shlib_entries.append((x.name, x.path))
             else:
@@ -1902,6 +1973,7 @@ def _dynamic_link_group_shared_impl(
 
     toolchain_deps = [d.name for d in arg.toolchain_deps]
     toolchain_package_db = pkg_deps.providers[DynamicHaskellToolchainPackageDbInfo].toolchain_packages
+    toolchain_package_db = augment_toolchain_package_db(actions, toolchain_package_db, arg.toolchain_deps)
 
     packagedb_args = cmd_args()
     package_args = cmd_args()

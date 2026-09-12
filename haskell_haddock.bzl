@@ -16,6 +16,7 @@ load(
     "DynamicHaskellToolchainPackageDbInfo",
     "HaskellToolchainLibrary",
     "HaskellToolchainPackageDbTSet",
+    "augment_toolchain_package_db",
 )
 load(
     ":util.bzl",
@@ -146,6 +147,12 @@ def _dynamic_haddock_dump_interfaces_impl(
     else:
         toolchain_package_db = {}
 
+    toolchain_package_db = augment_toolchain_package_db(
+        actions,
+        toolchain_package_db,
+        getattr(arg, "toolchain_lib_objs", []),
+    )
+
     # Package databases of the toolchain library dependencies (and their
     # transitive closure). These provide packages such as `base` or
     # `hspec-core` that the interface files being documented refer to. Only
@@ -266,6 +273,9 @@ def haskell_haddock_lib(ctx: AnalysisContext, pkgname: str, compiled: CompileRes
             link_style = link_style,
             md_file = md_file,
             toolchain_libs = toolchain_libs,
+            toolchain_lib_objs =
+                [dep[HaskellToolchainLibrary] for dep in attr_deps(ctx) if HaskellToolchainLibrary in dep] +
+                libs.reduce("toolchain_packages"),
         ),
     ))
 

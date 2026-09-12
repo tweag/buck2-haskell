@@ -12,6 +12,7 @@ load(
     "haskell_link_group_impl",
     "haskell_prebuilt_library_impl",
     "haskell_test_impl",
+    "haskell_toolchain_library_from_package_db_impl",
     "haskell_toolchain_library_impl",
 )
 load(":ghc_plugin.bzl", "GhcPluginInfo", "ghc_plugin_impl")
@@ -529,6 +530,14 @@ haskell_link_group = rule(
 haskell_toolchain_library = rule(
     impl = haskell_toolchain_library_impl,
     attrs = {
+        "package_db": attrs.option(attrs.string(), default = None, doc = """
+            Path to a `package.conf.d`/`package.db` directory containing the
+            package to expose. This is an *impure* path, resolved relative to
+            the project root at build time (the same convention as
+            `impure_binary`'s `binary_path`), so it may point outside the
+            enclosing cell (e.g. a locally built GHC's package db or a cabal
+            store db). The named package must be registered in this db.
+        """),
         # extra needed (from rules_impl.bzl)
         "_haskell_toolchain": haskell_toolchain(),
         "_generate_toolchain_lib_metadata": attrs.dep(

@@ -83,6 +83,7 @@ load(
     "HaskellToolchainInfo",
     "HaskellToolchainLibrary",
     "HaskellToolchainPackageDbTSet",
+    "augment_toolchain_package_db",
 )
 load(
     ":util.bzl",
@@ -679,6 +680,11 @@ def _ghci_resolve_toolchain_pkgs_impl(
         arg) -> list[Provider]:
     toolchain_package_db = pkg_deps.providers[DynamicHaskellToolchainPackageDbInfo].toolchain_packages
 
+    toolchain_package_db = augment_toolchain_package_db(
+        actions,
+        toolchain_package_db,
+        getattr(arg, "toolchain_lib_objs", []),
+    )
     toolchain_package_db_tset = actions.tset(
         HaskellToolchainPackageDbTSet,
         children = [toolchain_package_db[name] for name in arg.toolchain_libs if name in toolchain_package_db],
@@ -718,7 +724,7 @@ def _ghci_force_toolchain_pkgs_impl(
     pkg_symlinks = {}
     for name, pkg_tset in toolchain_package_db.items():
         pkg = pkg_tset.reduce("toolchain_root")
-        if pkg != None:
+        if pkg != None and pkg.path != None:
             pkg_symlinks[name] = pkg.path
 
     actions.symlinked_dir(pkgdbs_dir, pkg_symlinks)
@@ -902,7 +908,10 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx.actions.dynamic_output_new(_ghci_resolve_toolchain_pkgs(
             pkg_deps = haskell_toolchain.packages.dynamic,
             output = toolchain_pkg_args_file.as_output(),
-            arg = struct(toolchain_libs = toolchain_libs),
+            arg = struct(
+                toolchain_libs = toolchain_libs,
+                toolchain_lib_objs = packages_info.transitive_deps.reduce("toolchain_packages"),
+            ),
         ))
     else:
         ctx.actions.write(toolchain_pkg_args_file.as_output(), "")
@@ -1465,7 +1474,10 @@ def haskell_ghci_global_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx.actions.dynamic_output_new(_ghci_resolve_toolchain_pkgs(
             pkg_deps = haskell_toolchain.packages.dynamic,
             output = toolchain_pkg_args_file.as_output(),
-            arg = struct(toolchain_libs = all_toolchain_libs),
+            arg = struct(
+                toolchain_libs = all_toolchain_libs,
+                toolchain_lib_objs = toolchain_packages,
+            ),
         ))
         toolchain_pkgdbs_forced = ctx.actions.declare_output(ctx.label.name + ".pkgdbs", dir = True)
         ctx.actions.dynamic_output_new(_ghci_force_toolchain_pkgs(

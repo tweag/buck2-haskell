@@ -17,7 +17,10 @@ HaskellToolchainPackagesInfo = record(
 
 HaskellToolchainPackage = record(
     db = ArgLike,
-    path = Artifact,
+    # The directory backing the package db, used to materialize the package's
+    # files (interfaces, libs) as hidden inputs. May be `None` for package dbs
+    # that are provided as a bare path without a tracked artifact.
+    path = field(Artifact | None, None),
     name = field(str, ""),
 )
 
@@ -62,6 +65,17 @@ HaskellToolchainLibrary = provider(
     fields = {
         "name": provider_field(str),
         "dynamic": DynamicValue,
+        # For toolchain libraries whose package db is provided directly (e.g.
+        # `haskell_toolchain_library_from_package_db`), this carries the path to
+        # the package db directory so that consumers can resolve it without
+        # looking it up in the toolchain-wide package db. `None` for libraries
+        # resolved through the toolchain's package db.
+        #
+        # NOTE: this must stay hashable (a plain string, not a transitive set),
+        # because `HaskellToolchainLibrary` values are placed into sets by
+        # `dedupe_by_value`. The single-entry `HaskellToolchainPackageDbTSet` is
+        # built on demand by `augment_toolchain_package_db`.
+        "package_db_path": provider_field(typing.Any, default = None),  # str | None
     },
 )
 
@@ -89,6 +103,35 @@ HaskellToolchainPackageDbTSet = transitive_set(
 DynamicHaskellToolchainPackageDbInfo = provider(fields = {
     "toolchain_packages": dict[str, HaskellToolchainPackageDbTSet],
 })
+
+def augment_toolchain_package_db(actions, base, toolchain_libs):
+    """Merge package dbs carried by toolchain libraries into a package db dict.
+
+    `base` is the toolchain-wide `name -> HaskellToolchainPackageDbTSet` dict.
+    `toolchain_libs` is a list of `HaskellToolchainLibrary` (direct and/or
+    transitive); for each whose `package_db_path` is set (see
+    `haskell_toolchain_library_from_package_db`), a single-entry
+    `HaskellToolchainPackageDbTSet` is built and added to the resulting dict
+    keyed by the library name. Returns `base` unchanged when there is nothing to
+    add.
+    """
+    extra = {
+        lib.name: actions.tset(
+            HaskellToolchainPackageDbTSet,
+            value = HaskellToolchainPackage(
+                db = cmd_args(lib.package_db_path),
+                # `package_db_path` is an impure on-disk path, not a tracked
+                # artifact, so there is no backing artifact to materialize.
+                path = None,
+                name = lib.name,
+            ),
+        )
+        for lib in toolchain_libs
+        if lib.package_db_path != None
+    }
+    if not extra:
+        return base
+    return dict(base) | extra
 
 def _toolchain(lang: str, providers: list[typing.Any]) -> Attr:
     return attrs.toolchain_dep(default = "toolchains//:" + lang, providers = providers)

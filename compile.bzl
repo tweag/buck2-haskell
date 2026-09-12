@@ -51,6 +51,7 @@ load(
     "HaskellToolchainInfo",
     "HaskellToolchainLibrary",
     "HaskellToolchainPackageDbTSet",
+    "augment_toolchain_package_db",
 )
 load(
     ":util.bzl",
@@ -835,6 +836,13 @@ def get_packages_info(
         if HaskellToolchainLibrary in dep
     ]
 
+    toolchain_package_db = augment_toolchain_package_db(
+        actions,
+        toolchain_package_db,
+        [dep[HaskellToolchainLibrary] for dep in deps if HaskellToolchainLibrary in dep] +
+        libs.reduce("toolchain_packages"),
+    )
+
     toolchain_libs = direct_toolchain_libs + libs.reduce("packages")
 
     toolchain_package_db_tset = actions.tset(
@@ -1106,7 +1114,7 @@ def _common_compile_module_args(
     if arg.haskell_toolchain.packages:
         toolchain_package_db = pkg_deps.providers[DynamicHaskellToolchainPackageDbInfo].toolchain_packages
     else:
-        toolchain_package_db = []
+        toolchain_package_db = {}
 
     if is_worker_execute:
         package_env_args = cmd_args()
@@ -1121,6 +1129,12 @@ def _common_compile_module_args(
             for dep in arg.deps
             if HaskellToolchainLibrary in dep
         ]
+        toolchain_package_db = augment_toolchain_package_db(
+            actions,
+            toolchain_package_db,
+            [dep[HaskellToolchainLibrary] for dep in arg.deps if HaskellToolchainLibrary in dep] +
+            libs.reduce("toolchain_packages"),
+        )
         toolchain_libs = direct_toolchain_libs + libs.reduce("packages") + arg.plugin_toolchain_deps
 
         toolchain_package_db_tset = actions.tset(
@@ -1372,7 +1386,7 @@ def _compile_module(
     hidden_toolchain_deps = []
     for p in toolchain_deps:
         pkg = common_args.toolchain_package_db.get(p)
-        if pkg:
+        if pkg and pkg.value.path != None:
             hidden_toolchain_deps.append(pkg.value.path)
 
     # Transitive module dependencies from other packages.
