@@ -10,29 +10,30 @@ load(
     name = lib,
 ) for lib in [
     "base",
-    # "liquidhaskell",
+    "liquidhaskell",
 ]]
 
-# # liquidhaskell is a toolchain library plugin that performs refinement type
-# # checking at compile time using an SMT solver (z3).
-# ghc_plugin(
-#    name = "liquidhaskell_plugin",
-#    module = "LiquidHaskell",
-#    deps = [":liquidhaskell"],
-#    tools = [":z3"],
-#)
+# liquidhaskell is a toolchain library plugin that performs refinement type
+# checking at compile time using an SMT solver (z3).
+ghc_plugin(
+    name = "liquidhaskell_plugin",
+    module = "LiquidHaskell",
+    deps = [":liquidhaskell"],
+    tools = [":z3"],
+)
 
-# # Building this test is expected to fail with a static check error, to
-# # demonstrate that the plugin is actually checking the program.
-# haskell_test(
-#     name = "liquidhaskell_example",
-#     srcs = ["LiquidMain.hs"],
-#     plugins = [":liquidhaskell_plugin"],
-#     deps = [":base"],
-# )
+# Building this test is expected to fail with a static check error, to
+# demonstrate that the plugin is actually checking the program.
+haskell_test(
+    name = "liquidhaskell_example",
+    srcs = ["LiquidMain.hs"],
+    plugins = [":liquidhaskell_plugin"],
+    deps = [":base"],
+    allow_worker = False,
+)
 
-# nix_build(
-#     name = "z3",
-#     binary = "z3",
-#     flake = "@nix//:nix_overlays",
-#)
+nix_build(
+    name = "z3",
+    binary = "z3",
+    flake = "@nix//:nix_overlays_ghc910",
+)
