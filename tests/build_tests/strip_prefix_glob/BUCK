@@ -16,7 +16,7 @@ haskell_library(
     strip_prefix = ["src"],
     deps = ["//tests:base"],
     visibility = ["//tests/..."],
-    allow_worker = False,
+    _worker = "toolchains//:persistent_worker",
 )
 
 haskell_binary(
@@ -27,7 +27,7 @@ haskell_binary(
         ":lib",
         "//tests:base",
     ],
-    allow_worker = False,
+    _worker = "toolchains//:persistent_worker",
 )
 
 sh_test(
