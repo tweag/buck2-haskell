@@ -22,7 +22,7 @@ haskell_library(
         "//tests:hspec",
     ],
     visibility = ["//tests/..."],
-    allow_worker = False,
+    _worker = "toolchains//:persistent_worker",
 )
 
 haskell_library(
@@ -33,7 +33,7 @@ haskell_library(
         ":lib",
     ],
     visibility = ["//tests/..."],
-    allow_worker = False,
+    _worker = "toolchains//:persistent_worker",
 )
 
 # =============================================================================
@@ -66,7 +66,7 @@ haskell_binary(
         ":lib",
         "//tests:base",
     ],
-    allow_worker = False,
+    _worker = "toolchains//:persistent_worker",
 )
 
 # Test: haskell_binary with shared (dynamic) linking.
@@ -78,7 +78,7 @@ haskell_binary(
         ":lib",
         "//tests:base",
     ],
-    allow_worker = False,
+    _worker = "toolchains//:persistent_worker",
 )
 
 # Test: haskell_binary with custom main module name (shared)
@@ -90,6 +90,8 @@ haskell_binary(
     deps = [
         "//tests:base",
     ],
+    # The worker doesn't support disagreement between the main module name and
+    # the source file name.
     allow_worker = False,
 )
 
@@ -102,6 +104,8 @@ haskell_binary(
     deps = [
         "//tests:base",
     ],
+    # The worker doesn't support disagreement between the main module name and
+    # the source file name.
     allow_worker = False,
 )
 
@@ -140,7 +144,7 @@ haskell_test(
         ":lib",
         "//tests:base",
     ],
-    allow_worker = False,
+    _worker = "toolchains//:persistent_worker",
 )
 
 haskell_test(
@@ -151,7 +155,7 @@ haskell_test(
         ":lib",
         "//tests:base",
     ],
-    allow_worker = False,
+    _worker = "toolchains//:persistent_worker",
 )
 
 # =============================================================================
@@ -166,6 +170,7 @@ haskell_ghci(
         ":lib",
         "//tests:base",
     ],
+    _worker = "toolchains//:persistent_worker",
 )
 
 genrule(
