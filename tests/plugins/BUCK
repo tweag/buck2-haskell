@@ -418,56 +418,56 @@ ghc_plugin(
     visibility = ["//tests/..."],
 )
 
-# haskell_test(
-#     name = "ht_inspection_static",
-#     srcs = ["InspectionMain.hs"],
-#     link_style = "static",
-#     plugins = [":inspection_plugin"],
-#     deps = [
-#         "//tests:base",
-#         "//tests:inspection-testing",
-#     ],
-#     allow_worker = False,
-# )
+haskell_test(
+    name = "ht_inspection_static",
+    srcs = ["InspectionMain.hs"],
+    link_style = "static",
+    plugins = [":inspection_plugin"],
+    deps = [
+        "//tests:base",
+        "//tests:inspection-testing",
+    ],
+    _worker = "toolchains//:persistent_worker",
+)
 
-# haskell_test(
-#     name = "ht_inspection_shared",
-#     srcs = ["InspectionMain.hs"],
-#     link_style = "shared",
-#     plugins = [":inspection_plugin"],
-#     deps = [
-#         "//tests:base",
-#         "//tests:inspection-testing",
-#     ],
-#     allow_worker = False,
-# )
+haskell_test(
+    name = "ht_inspection_shared",
+    srcs = ["InspectionMain.hs"],
+    link_style = "shared",
+    plugins = [":inspection_plugin"],
+    deps = [
+        "//tests:base",
+        "//tests:inspection-testing",
+    ],
+    allow_worker = False,
+)
 
 # # --- per_module_plugins variants (per-module) ---
 
-# haskell_test(
-#     name = "ht_per_module_inspection_static",
-#     srcs = ["InspectionMain.hs"],
-#     link_style = "static",
-#     per_module_plugins = {
-#         "Main": [":inspection_plugin"],
-#     },
-#     deps = [
-#         "//tests:base",
-#         "//tests:inspection-testing",
-#     ],
-#     allow_worker = False,
-# )
+haskell_test(
+    name = "ht_per_module_inspection_static",
+    srcs = ["InspectionMain.hs"],
+    link_style = "static",
+    per_module_plugins = {
+        "Main": [":inspection_plugin"],
+    },
+    deps = [
+        "//tests:base",
+        "//tests:inspection-testing",
+    ],
+    allow_worker = False,
+)
 
-# haskell_test(
-#     name = "ht_per_module_inspection_shared",
-#     srcs = ["InspectionMain.hs"],
-#     link_style = "shared",
-#     per_module_plugins = {
-#         "Main": [":inspection_plugin"],
-#     },
-#     deps = [
-#         "//tests:base",
-#         "//tests:inspection-testing",
-#     ],
-#     allow_worker = False,
-# )
+haskell_test(
+    name = "ht_per_module_inspection_shared",
+    srcs = ["InspectionMain.hs"],
+    link_style = "shared",
+    per_module_plugins = {
+        "Main": [":inspection_plugin"],
+    },
+    deps = [
+        "//tests:base",
+        "//tests:inspection-testing",
+    ],
+    allow_worker = False,
+)

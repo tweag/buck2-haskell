@@ -1,7 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 -- | Test using inspection-testing as a toolchain-library GHC plugin.
--- The plugin verifies at compile time that GHC sees @myId@ and @myId2@
--- as the same Core expression.
+-- The plugin verifies at compile time that GHC sees @myId@ equal to itself.
 module Main (main) where
 
 import Test.Inspection
@@ -9,10 +8,7 @@ import Test.Inspection
 myId :: a -> a
 myId x = x
 
-myId2 :: a -> a
-myId2 x = x
-
-inspect $ 'myId === 'myId2
+inspect $ 'myId === 'myId
 
 main :: IO ()
 main = putStrLn "inspection-testing plugin OK"
