@@ -1701,7 +1701,6 @@ def compile_args_for_non_incr(
 
     args.add("-fbyte-code-and-object-code")
     args.add("-fprefer-byte-code")
-    args.add("-fpackage-db-byte-code")
     args.add("-j")
 
     args.add("-no-link", "-i")
