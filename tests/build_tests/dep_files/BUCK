@@ -33,4 +33,6 @@ sh_test(
     name = "test_dep_files",
     test = "test_dep_files.sh",
     labels = ["buck2_run_from_project_root"],
+    # Only meant to run with the worker enabled.
+    target_compatible_with = [] if worker_enabled() else ["prelude//:none"],
 )
