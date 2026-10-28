@@ -3,6 +3,7 @@ load(
     "haskell_binary",
     "haskell_library",
 )
+load("@buck2-haskell//:worker_config.bzl", "worker_enabled")
 
 #
 # regular module transitively depends on toolchain FFI
@@ -73,6 +74,8 @@ haskell_library(
         ":libA",
     ],
     _worker = "toolchains//:persistent_worker",
+    # Only the worker supports incremental compilation with Template Haskell.
+    incremental = worker_enabled(),
 )
 
 
