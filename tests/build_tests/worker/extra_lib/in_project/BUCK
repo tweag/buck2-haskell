@@ -9,7 +9,7 @@ load(":wrap_cxx.bzl", "wrap_cxx")
 native.cxx_library(
     name = "clib_cxx",
     srcs = ["cbits/clib.c"],
-    headers = ["cbits/clib.h"],
+    exported_headers = ["cbits/clib.h"],
     preferred_linkage = "shared",
     visibility = ["PUBLIC"],
 )
