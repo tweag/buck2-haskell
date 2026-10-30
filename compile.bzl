@@ -2115,6 +2115,11 @@ def compile(
         enable_profiling = False,
     )
 
+    transitive_extra_libraries = make_extra_libraries_tset(
+        ctx.actions,
+        extra_libraries = ctx.attrs.extra_libraries,
+        haskell_libraries = attr_deps_haskell_link_infos(ctx),
+    )
     link_args = unpack_link_args(
         get_link_args_for_strategy(
             ctx.actions,
@@ -2122,7 +2127,7 @@ def compile(
             get_cxx_toolchain_info(ctx).linker_info,
             [
                 lib[MergedLinkInfo]
-                for lib in ctx.attrs.extra_libraries
+                for lib in traverse_extra_libraries(transitive_extra_libraries)
                 if MergedLinkInfo in lib
             ],
             to_link_strategy(link_style),

@@ -890,8 +890,15 @@ def _build_haskell_lib(
     toolchain_libs_full = attr_deps_haskell_toolchain_libraries(ctx)
     project_libs_full = attr_deps_haskell_lib_infos(ctx, link_style, enable_profiling)
 
+    transitive_extra_libraries = make_extra_libraries_tset(
+        ctx.actions,
+        extra_libraries = ctx.attrs.extra_libraries,
+        haskell_libraries = hlis,
+    )
+    transitive_extra_libs = traverse_extra_libraries(transitive_extra_libraries)
+
     # construct ExtraLibraryInfo struct from extra_libraries
-    extra_lib_info = get_extra_lib_info(link_style, ctx.attrs.extra_libraries)
+    extra_lib_info = get_extra_lib_info(link_style, transitive_extra_libs)
     extra_libs = extra_lib_info.extra_libs
     extra_lib_dyns = extra_lib_info.extra_lib_dyns
 
@@ -901,7 +908,7 @@ def _build_haskell_lib(
         get_cxx_toolchain_info(ctx).linker_info,
         [
             lib[MergedLinkInfo]
-            for lib in ctx.attrs.extra_libraries
+            for lib in transitive_extra_libs
         ],
         to_link_strategy(link_style),
         prefer_stripped = True,
