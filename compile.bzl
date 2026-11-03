@@ -446,6 +446,8 @@ def unit_buck2_args(actions: AnalysisActions, arg: UnitParams) -> cmd_args:
 
 MetadataUnitParams = record(
     unit = field(UnitParams),
+    # List of toolchain libraries that may be needed it. This includes regular
+    # direct dependencies and direct plugin packages.
     toolchain_libs = field(list[str]),
     deps = field(list[Dependency]),
     direct_extra_libs = field(list[Dependency]),
@@ -536,6 +538,7 @@ def _dynamic_target_metadata_impl(
         for_deps = True,
         pkg_deps = pkg_deps,
         is_worker_execute = is_worker_execute,
+        unit_direct_toolchain_libs = munit.toolchain_libs,
     )
     package_flag = _package_flag(haskell_toolchain)
 
@@ -705,6 +708,9 @@ def target_metadata(
         # Note how we skip the hidden inputs of the plugins, they should be
         # needed only by the compile step.
         worker_plugin_flags = cmd_args(per_module_pkgs_args, _plugin_flags.unit.mod_flags)
+        for name in _plugin_flags.plugin_toolchain_deps:
+            if name not in toolchain_libs:
+                toolchain_libs.append(name)
         # Create a JSON file mapping module names to their per-module GHC mod_flags
         # (e.g. -fplugin=..., -fplugin-opt=...) for the worker build-plan step.
         _per_module_plugin_flags = {
@@ -828,7 +834,8 @@ def get_packages_info(
         use_empty_lib: bool,
         pkg_deps: ResolvedDynamicValue | None,
         for_deps: bool,
-        is_worker_execute: bool) -> PackagesInfo:
+        is_worker_execute: bool,
+        unit_direct_toolchain_libs: list[str] = []) -> PackagesInfo:
     # Collect library dependencies. Note that these don't need to be in a
     # particular order.
     libs = actions.tset(
@@ -887,11 +894,14 @@ def get_packages_info(
     else:
         toolchain_package_db = {}
 
-    direct_toolchain_libs = [
-        dep[HaskellToolchainLibrary].name
-        for dep in deps
-        if HaskellToolchainLibrary in dep
-    ]
+    if unit_direct_toolchain_libs:
+        direct_toolchain_libs = unit_direct_toolchain_libs
+    else:
+        direct_toolchain_libs = [
+            dep[HaskellToolchainLibrary].name
+            for dep in deps
+            if HaskellToolchainLibrary in dep
+        ]
 
     transitive_toolchain_libs = libs.reduce("toolchain_packages")
     toolchain_package_db = augment_toolchain_package_db(
